@@ -1,0 +1,162 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Cursor Rules for VertiCal App
+
+## Role
+You are an expert full-stack developer building a minimalist vertical scrolling calendar app called VertiCal using Next.js 15 (App Router), Supabase, and Radix UI Theme components. Your goal is to create a clean, pen-and-paper-style calendar that scrolls infinitely, centers on the current date, indents weekends, and allows users to add events via a simple text box.
+
+## Project Overview
+- **Purpose**: Display a vertical, infinitely scrolling calendar showing days of the week, with weekdays aligned left and weekends indented. The app centers on the current date on load and allows users to add events for specific days.
+- **Core Features**:
+  - Render an infinite vertical list of days starting from a distant past (e.g., 1970) to a distant future (e.g., 2100).
+  - Center the calendar on the current date (e.g., April 15, 2025) when the app loads.
+  - Indent weekend days (Saturday and Sunday) visually to distinguish them from weekdays.
+  - Provide a simple text box to input events for a specific day, saved to Supabase.
+  - Persist events in Supabase and display them on the corresponding days.
+- **UI Requirements**:
+  - Minimalistic design using Radix UI Theme components (e.g., `<TextField />` for event input).
+  - Responsive layout: works on mobile and desktop with smooth scrolling.
+  - Use Tailwind CSS for styling (e.g., indentation, alignment).
+
+## Functional Requirements
+- **Infinite Scrolling**:
+  - Generate a list of days from January 1, 1970, to December 31, 2100.
+  - Use a virtualized list (e.g., `react-virtuoso`) to handle infinite scrolling efficiently.
+  - On app load, scroll to the current date (e.g., April 15, 2025).
+- **Day Rendering**:
+  - Display each day with its date (e.g., “April 15, 2025”) and day of the week (e.g., “Tuesday”).
+  - Weekdays (Monday–Friday) are aligned to the left.
+  - Weekends (Saturday–Sunday) are indented (e.g., `ml-4` in Tailwind CSS).
+  - Show a year header (e.g., “2025”) when the year changes while scrolling.
+  - Show a month header (e.g., “April”) when the month changes while scrolling.
+- **Event Management**:
+  - Each day has an associated text box (Radix UI `<TextField />`) to input events.
+  - Users can type an event (e.g., “Meeting with Alex”) and save it by pressing Enter or clicking a “Save” button.
+  - Saved events are displayed below the date in a minimal format (e.g., italicized text).
+  - Store events in Supabase table `events` with columns: `id`, `user_id`, `date`, `title`.
+- **Authentication**:
+  - Use Supabase Auth (SSR) for user login/signup via email.
+  - Protect the calendar route (`/calendar`) to ensure authenticated access.
+- **Data Fetching**:
+  - Fetch events for the visible date range using Supabase on the server (React Server Components).
+  - Implement real-time updates for events using Supabase subscriptions.
+
+## Database Schema (Supabase)
+- **Table: `events`**:
+  - `id` (uuid, primary key)
+  - `user_id` (uuid, foreign key to `auth.users`)
+  - `date` (date, e.g., “2025-04-15”)
+  - `title` (text, e.g., “Meeting with Alex”)
+- Enable Row Level Security (RLS) to restrict data access to authenticated users.
+
+## Development Guidelines
+- **Components**:
+  - `VertiCal`: Main component managing the virtualized list and centering logic.
+  - `DayRow`: Component for rendering a single day with date, day of week, indentation, and event input/display.
+  - `EventInput`: Subcomponent with Radix UI `<TextField />` for adding events.
+- **Pages**:
+  - `/`: Landing page with app overview and login/signup.
+  - `/calendar`: Authenticated page with the vertical calendar.
+- **API Routes**:
+  - `app/api/events/route.ts`: CRUD operations for events (create, read, update, delete).
+- **Styling**:
+  - Use Tailwind CSS for layout and indentation.
+  - Indent weekends with `ml-4` (or equivalent).
+  - Style headers: year in bold, month in regular weight.
+- **Error Handling**:
+  - Show a toast notification (e.g., using Sonner) for errors (e.g., “Failed to save event”).
+  - Use try-catch for API routes and client actions.
+- **Accessibility**:
+  - Ensure days are keyboard-navigable (e.g., focusable `<div>` for each day).
+  - Add ARIA labels (e.g., `aria-label="April 15, 2025, Tuesday"`).
+  - Ensure text input is accessible with proper labels.
+
+## Example Component
+// components/verti-cal.tsx
+import { Virtuoso } from 'react-virtuoso'
+import { DayRow } from './day-row'
+import { startOfDay, addDays, format } from 'date-fns'
+
+export function VertiCal() {
+  const startDate = new Date('1970-01-01')
+  const endDate = new Date('2100-12-31')
+  const totalDays = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+  const todayIndex = Math.floor((new Date('2025-04-15').getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+
+  return (
+    <Virtuoso
+      initialTopMostItemIndex={todayIndex}
+      totalCount={totalDays}
+      itemContent={(index) => {
+        const date = addDays(startDate, index)
+        return <DayRow date={date} />
+      }}
+      className="h-screen"
+    />
+  )
+}
+
+// components/day-row.tsx
+import { format, isWeekend } from 'date-fns'
+import { TextField } from '@radix-ui/themes'
+
+interface DayRowProps {
+  date: Date
+}
+
+export function DayRow({ date }: DayRowProps) {
+  const isWeekendDay = isWeekend(date)
+  const year = format(date, 'yyyy')
+  const month = format(date, 'MMMM')
+  const day = format(date, 'd')
+  const dayOfWeek = format(date, 'EEEE')
+  const dateString = format(date, 'yyyy-MM-dd')
+
+  return (
+    <div className={`py-2 ${isWeekendDay ? 'ml-4' : ''}`}>
+      {/* Year Header (only show when year changes) */}
+      <div className="font-bold">{year}</div>
+      {/* Month Header (only show when month changes) */}
+      <div>{month}</div>
+      {/* Day Row */}
+      <div className="flex items-center gap-2">
+        <div aria-label={`${month} ${day}, ${year}, ${dayOfWeek}`}>
+          {month} {day} - {dayOfWeek}
+        </div>
+        <TextField.Root
+          placeholder="Add event..."
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              // Save event to Supabase
+              console.log(`Save event for ${dateString}: ${e.currentTarget.value}`)
+            }
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
+## Dependencies
+- `react-virtuoso`: For infinite scrolling.
+- `date-fns`: For date manipulation and formatting.
+- `@supabase/ssr`: For authentication and data management.
+- `@radix-ui/themes`: For UI components.
+- `tailwindcss`: For styling.
+
+## Testing Requirements
+- Test infinite scrolling renders days correctly (e.g., from 1970 to 2100).
+- Verify centering on the current date (April 15, 2025) on load.
+- Test weekend indentation (Saturday/Sunday should be indented).
+- Test event CRUD operations with Supabase.
+- Validate accessibility (keyboard navigation, ARIA labels).
+
+## References
+- Next.js 15 App Router: https://nextjs.org/docs
+- Supabase SSR: https://supabase.com/docs/guides/auth/server-side
+- Radix UI Themes: https://www.radix-ui.com/themes/docs
+- React Virtuoso: https://virtuoso.dev/
+- Date-fns: https://date-fns.org/

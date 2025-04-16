@@ -1,0 +1,112 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Cursor Rules for Next.js Project with Supabase, Vercel AI SDK, Tabler Icons, Sonner, and Radix UI
+
+## Role
+You are an expert full-stack developer specializing in TypeScript, Next.js 15 (App Router), Supabase, Vercel AI SDK, Radix UI Theme components, Tabler Icons, and Sonner alerts. You deliver clean, maintainable, and performant code adhering to modern web development best practices.
+
+## Project Structure
+- Use the following directory structure:
+  - `app/`: Next.js App Router pages and API routes
+  - `components/`: Reusable React components (e.g., `life-calendar.tsx`, `milestone-form.tsx`)
+  - `lib/`: Utility functions and Supabase/Vercel AI SDK clients
+  - `styles/`: Global CSS and Tailwind CSS configurations
+  - `types/`: TypeScript type definitions
+  - `public/`: Static assets (e.g., Tabler Icons sprites)
+  - `db/`: Supabase schema and migration files
+- Use camel-case for file and directory names (e.g., `LifeCalendar.tsx`).
+- Place shared components in `components/ui/` for Radix UI and Sonner integrations.
+
+## Code Style and Structure
+- Write concise, technical TypeScript code using functional and declarative patterns; avoid classes.
+- Use descriptive variable names with auxiliary verbs (e.g., `isLoading`, `hasError`).
+- Structure files: exported component, subcomponents, helpers, static content, types.
+- Favor named exports for components and utilities.
+- Use interfaces over types; avoid enums, use const objects or `as const` assertions.
+
+## TypeScript Usage
+- Use TypeScript for all code; enforce strict mode.
+- Define interfaces for component props and Supabase data models.
+- Use Supabase's type-safe SDK for database queries.
+
+## UI and Styling
+- Use Radix UI Theme components for core UI elements (e.g., buttons, modals).
+- Integrate Tabler Icons via `@tabler/icons-react` for icons.
+- Use Sonner for toast notifications (`<Toaster />` in root layout).
+- Apply Tailwind CSS with a mobile-first approach for responsive design.
+- Ensure accessibility: keyboard navigation, ARIA labels, and WCAG-compliant contrast ratios.
+
+## Performance Optimization
+- Minimize `'use client'`, `useEffect`, and `useState`; favor React Server Components (RSC).
+- Use dynamic imports for non-critical components (e.g., `dynamic(() => import('./milestone-form'))`).
+- Optimize images: use Next.js `<Image />`, WebP format, and lazy loading.
+- Wrap client components in `<Suspense>` with fallback UI.
+
+## Supabase Integration
+- Use `@supabase/ssr` for authentication and cookie management.
+- Only use `getAll` and `setAll` for cookie handling; never use `get`, `set`, or `remove`.
+- Never import from `@supabase/auth-helpers-nextjs`.
+- Create browser and server clients in `lib/supabase/`:
+  - `createBrowserClient` for client-side queries.
+  - `createServerClient` for server-side queries and middleware.
+- Use Supabase SDK for data fetching and real-time subscriptions.
+- Document schema and Row Level Security (RLS) policies in `db/schema/`.
+
+## Vercel AI SDK Integration
+- Use Vercel AI SDK for AI-powered features (e.g., generating milestone suggestions).
+- Implement streaming chat UI with `ai/rsc` for dynamic responses.
+- Handle AI errors with fallbacks and clear user messages via Sonner toasts.
+- Store API keys in environment variables (`NEXT_PUBLIC_AI_API_KEY`).
+
+## Error Handling and Notifications
+- Implement guard clauses and early returns for error conditions.
+- Use custom error types for consistent error handling.
+- Display errors to users via Sonner toasts with clear messages.
+- Log errors server-side using Vercel’s logging.
+
+## Testing and Documentation
+- Write integration tests for complex components using Jest.
+- Implement end-to-end tests for critical flows (e.g., auth, calendar rendering).
+- Use Supabase local development for database testing.
+- Provide JSDoc comments for functions and components.
+- Keep `README.md` updated with setup instructions and project overview.
+
+## Dependencies
+- Core: `next`, `react`, `typescript`, `@supabase/ssr`, `ai`
+- UI: `@radix-ui/themes`, `@tabler/icons-react`, `sonner`, `tailwindcss`
+- Testing: `jest`, `@testing-library/react`
+- Ensure all dependencies are latest stable versions.
+
+## Key Conventions
+- Use `nuqs` for URL search parameter state management.
+- Optimize Web Vitals (LCP, CLS, FID).
+- Follow Next.js documentation for data fetching, rendering, and routing.
+- Refer to Vercel AI SDK and Supabase documentation for best practices.
+
+## Example Component Structure
+```tsx
+// components/LifeCalendar.tsx
+import { Suspense } from 'react'
+import { CalendarGrid } from './calendar-grid'
+import { toast } from 'sonner'
+import { Button } from '@radix-ui/themes'
+import { IconCalendar } from '@tabler/icons-react'
+
+interface LifeCalendarProps {
+  years: number
+  milestones: Array<{ week: number, title: string }>
+}
+
+export function LifeCalendar({ years, milestones }: LifeCalendarProps) {
+  const handleError = () => toast.error('Failed to load calendar')
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <Button><IconCalendar /> View Calendar</Button>
+      <CalendarGrid years={years} milestones={milestones} onError={handleError} />
+    </Suspense>
+  )
+}
+```
