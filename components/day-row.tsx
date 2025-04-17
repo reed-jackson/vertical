@@ -62,7 +62,7 @@ export function DayRow({ date, activeEvents = [], onDayClick }: DayRowProps) {
 				{/* Placeholder */}
 				{activeEvents.map((activeEventInfo, index) => {
 					const { event, showTitle } = activeEventInfo;
-					const isRangeEvent = !!event.endDate;
+					const isRangeEvent = !!event.event_end_date;
 
 					return (
 						<div
@@ -77,8 +77,8 @@ export function DayRow({ date, activeEvents = [], onDayClick }: DayRowProps) {
 									</Text>
 									{/* Display recurrence badge ONLY if not a range event (and title is shown) */}
 									{!isRangeEvent &&
-										event.recurrence &&
-										event.recurrence !== "none" && (
+										event.recurring_type &&
+										event.recurring_type !== "none" && (
 											<Badge
 												color="gray"
 												variant="soft"
@@ -87,7 +87,7 @@ export function DayRow({ date, activeEvents = [], onDayClick }: DayRowProps) {
 												ml="2"
 												style={{ verticalAlign: "middle" }}
 											>
-												{event.recurrence}
+												{event.recurring_type}
 											</Badge>
 										)}
 								</>
