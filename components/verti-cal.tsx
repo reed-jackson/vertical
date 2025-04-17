@@ -10,20 +10,18 @@ import {
 	format,
 	getYear,
 	getMonth,
-	isToday,
 	isAfter,
 	isValid,
 	// eachDayOfInterval, // Not needed for current recurrence logic
 	isSameDay,
-	getDate,
 	// differenceInCalendarDays, // More robust date-fns functions available
 	isBefore,
 	addWeeks,
 	addMonths,
 	addYears,
 } from "date-fns";
-import { useMemo, useState, useCallback, useRef, useEffect } from "react";
-import { Box, Heading, Text, Button, Flex, TextField, Select, TextArea, IconButton, Spinner } from "@radix-ui/themes";
+import { useMemo, useState, useCallback, useRef } from "react";
+import { Box, Heading, Text, Button, Flex, TextArea, IconButton, Spinner } from "@radix-ui/themes";
 import { IconArrowUp, IconPlus } from "@tabler/icons-react";
 // Remove ReactDatePicker import if no longer used elsewhere
 // import ReactDatePicker from "react-datepicker";
@@ -33,12 +31,8 @@ import { IconArrowUp, IconPlus } from "@tabler/icons-react";
 // Import the new Drawer components
 import {
 	Drawer,
-	DrawerClose,
 	BottomDrawerContent, // Use the custom content
 	DrawerFooter,
-	DrawerHeader,
-	DrawerTitle,
-	DrawerDescription,
 	DrawerTrigger, // Keep trigger for the FAB
 } from "./bottom-drawer"; // Adjust path if needed
 

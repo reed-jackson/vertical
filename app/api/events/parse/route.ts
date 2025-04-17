@@ -141,28 +141,43 @@ export async function POST(request: Request) {
 		// await saveEventToDatabase(finalEvent); // Replace with actual DB logic
 
 		return NextResponse.json(finalEvent, { status: 200 });
-	} catch (error: any) {
+	} catch (error: unknown) {
 		console.error("Error in /api/events/parse:", error);
 
 		// Provide more specific error messages if possible
 		let errorMessage = "Failed to parse event.";
 		let statusCode = 500;
 
-		if (error.message?.includes("rate limit")) {
+		// Type guard for objects with message property
+		const isErrorWithMessage = (error: unknown): error is { message: string } => {
+			return (
+				typeof error === "object" &&
+				error !== null &&
+				"message" in error &&
+				typeof (error as { message: unknown }).message === "string"
+			);
+		};
+
+		const errorWithMessage = isErrorWithMessage(error) ? error.message : "Unknown error occurred";
+
+		if (errorWithMessage.includes("rate limit")) {
 			errorMessage = "Rate limit exceeded. Please try again later.";
 			statusCode = 429;
-		} else if (error.message?.includes("authentication") || error.message?.includes("API key")) {
+		} else if (errorWithMessage.includes("authentication") || errorWithMessage.includes("API key")) {
 			errorMessage = "Authentication failed. Check AI provider API key.";
 			statusCode = 401;
-		} else if (error.name === "ZodError" || error.message?.includes("schema validation failed")) {
+		} else if (
+			(error instanceof Error && error.name === "ZodError") ||
+			errorWithMessage.includes("schema validation failed")
+		) {
 			errorMessage = "Invalid data format received from AI.";
-			statusCode = 500; // Internal error, AI didn't follow schema
+			statusCode = 500;
 		} else if (error instanceof SyntaxError) {
 			errorMessage = "Invalid JSON received in request.";
 			statusCode = 400;
 		}
 
-		return NextResponse.json({ error: errorMessage, details: error.message }, { status: statusCode });
+		return NextResponse.json({ error: errorMessage, details: errorWithMessage }, { status: statusCode });
 	}
 }
 
