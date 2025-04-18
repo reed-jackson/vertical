@@ -12,6 +12,7 @@ export const DrawerClose = VaulDrawer.Close;
 // Define only your custom props here
 interface CustomDrawerProps {
 	isEditing?: boolean;
+	snapPoints?: number[];
 }
 
 // Use an intersection type for the component's props
