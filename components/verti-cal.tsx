@@ -19,6 +19,7 @@ import {
 	addWeeks,
 	addMonths,
 	addYears,
+	differenceInMilliseconds, // Import for sorting events
 } from "date-fns";
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import {
@@ -37,6 +38,7 @@ import {
 	Grid,
 	Checkbox,
 	Separator,
+	Popover, // Import Popover
 } from "@radix-ui/themes";
 import { IconArrowUp, IconCalendarDown, IconCalendarUp, IconPlus, IconSearch, IconTrash } from "@tabler/icons-react";
 // Remove ReactDatePicker import if no longer used elsewhere
@@ -223,6 +225,16 @@ export function VertiCal() {
 
 	const [isSubmitting, setIsSubmitting] = useState(false); // To disable button during API call
 	const [formError, setFormError] = useState<string | null>(null); // To display errors in the drawer
+
+	// --- State for Search Popover ---
+	const [searchPopoverOpen, setSearchPopoverOpen] = useState(false);
+	const [searchQuery, setSearchQuery] = useState("");
+	// Define a type for search results
+	type SearchResult =
+		| { type: "date"; date: Date; index: number; label: string }
+		| { type: "event"; event: CalendarEvent; index: number; label: string };
+	const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+	const [isSearching, setIsSearching] = useState(false); // Optional: for loading indicator
 
 	// --- Function to reset form state ---
 	const resetFormState = useCallback(() => {
@@ -491,6 +503,109 @@ export function VertiCal() {
 	const isTodayInPast = todayIndex < visibleRange.start;
 	// --- End UI Helpers ---
 
+	// --- Search Logic ---
+	const handleSearch = useCallback(async () => {
+		if (!searchQuery.trim()) {
+			setSearchResults([]);
+			return;
+		}
+		setIsSearching(true);
+		setSearchResults([]); // Clear previous results
+
+		const query = searchQuery.trim().toLowerCase();
+		let results: SearchResult[] = [];
+
+		// 1. Attempt Date Parsing (Simple YYYY-MM-DD or MM/DD/YYYY for now)
+		let parsedDate: Date | null = null;
+		try {
+			if (/^\d{4}-\d{2}-\d{2}$/.test(query)) {
+				parsedDate = parseISO(query);
+			} else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(query)) {
+				// Basic MM/DD/YYYY - date-fns parse is better but requires format string
+				const parts = query.split("/");
+				// Note: Months are 0-indexed in JS Date constructor
+				const tempDate = new Date(
+					parseInt(parts[2], 10),
+					parseInt(parts[0], 10) - 1,
+					parseInt(parts[1], 10)
+				);
+				if (isValid(tempDate)) {
+					parsedDate = startOfDay(tempDate);
+				}
+			}
+			// Add more parsing logic here if needed (e.g., using date-fns/parse with formats)
+		} catch (e) {
+			console.warn("Date parsing failed for query:", query);
+		}
+
+		if (parsedDate && isValid(parsedDate)) {
+			// Ensure date is within the calendar range
+			if (!isBefore(parsedDate, startDate) && !isAfter(parsedDate, endDate)) {
+				const index = differenceInDays(parsedDate, startDate);
+				results.push({
+					type: "date",
+					date: parsedDate,
+					index: index,
+					label: `Go to ${format(parsedDate, "PPP")}`, // Format date nicely
+				});
+			}
+		}
+
+		// 2. Search Events by Title
+		const matchingEvents = events.filter(event => event.title.toLowerCase().includes(query));
+
+		// Sort matching events by proximity to today
+		const todayMs = today.getTime();
+		matchingEvents.sort((a, b) => {
+			const dateA = parseISO(a.event_date);
+			const dateB = parseISO(b.event_date);
+			const diffA = Math.abs(dateA.getTime() - todayMs);
+			const diffB = Math.abs(dateB.getTime() - todayMs);
+			return diffA - diffB;
+		});
+
+		matchingEvents.forEach(event => {
+			const eventDate = parseISO(event.event_date);
+			if (isValid(eventDate) && !isBefore(eventDate, startDate) && !isAfter(eventDate, endDate)) {
+				const index = differenceInDays(eventDate, startDate);
+				results.push({
+					type: "event",
+					event: event,
+					index: index,
+					label: `${event.title} on ${format(eventDate, "MMM d")}`,
+				});
+			}
+			// Note: This doesn't account for recurring instances currently.
+			// Searching recurring instances would require iterating through potential dates or pre-calculating occurrences.
+		});
+
+		// Limit results?
+		// results = results.slice(0, 10);
+
+		setSearchResults(results);
+		setIsSearching(false);
+	}, [searchQuery, events, startDate, endDate, today]);
+
+	// Trigger search on query change (debounced would be better in production)
+	useEffect(() => {
+		const debounceTimer = setTimeout(() => {
+			handleSearch();
+		}, 300); // Simple debounce
+
+		return () => clearTimeout(debounceTimer);
+	}, [searchQuery, handleSearch]);
+
+	const handleSearchResultClick = (result: SearchResult) => {
+		if (virtuosoRef.current) {
+			virtuosoRef.current.scrollToIndex({ index: result.index, align: "center", behavior: "smooth" });
+		}
+		setSearchPopoverOpen(false); // Close popover on selection
+		setSearchQuery(""); // Clear search input
+		setSearchResults([]); // Clear results
+	};
+
+	// --- End Search Logic ---
+
 	// --- Render Loading/Error States ---
 	if (fetchError) {
 		return (
@@ -612,24 +727,83 @@ export function VertiCal() {
 							<IconPlus size={24} />
 						</Button>
 
-						{/* Floating Search Button */}
-						<IconButton
-							variant="ghost"
-							size="4"
-							radius="full"
-							color="gray"
-							aria-label="Search events"
-							// onClick={() => { /* Add search logic later */ }}
-							style={
-								{
-									// Optional: Add some styling if needed, ghost usually doesn't need much
-									// backgroundColor: 'var(--color-background-alpha)', // Slight background maybe?
-									// backdropFilter: 'blur(4px)',
-								}
-							}
-						>
-							<IconSearch size={20} />
-						</IconButton>
+						{/* Floating Search Button with Popover */}
+						<Popover.Root open={searchPopoverOpen} onOpenChange={setSearchPopoverOpen}>
+							<Popover.Trigger>
+								<IconButton
+									variant="ghost"
+									size="4"
+									radius="full"
+									color="gray"
+									aria-label="Search events or dates"
+									// Remove the old onClick for search here if it existed
+								>
+									<IconSearch size={20} />
+								</IconButton>
+							</Popover.Trigger>
+							<Popover.Content
+								side="left"
+								style={{ width: 300 }}
+								align="end"
+								sideOffset={10}
+							>
+								<Flex direction="column" gap="3">
+									<TextField.Root
+										placeholder="Search date (YYYY-MM-DD) or event..."
+										value={searchQuery}
+										onChange={e => setSearchQuery(e.target.value)}
+										autoFocus
+										size="2"
+									>
+										<TextField.Slot>
+											{isSearching && <Spinner size="1" />}
+										</TextField.Slot>
+									</TextField.Root>
+
+									{searchResults.length > 0 && (
+										<Box
+											style={{
+												maxHeight: "200px", // Limit result height
+												overflowY: "auto",
+											}}
+										>
+											<Flex direction="column" gap="1">
+												{searchResults.map((result, idx) => (
+													<Button
+														key={idx}
+														variant="ghost"
+														onClick={() =>
+															handleSearchResultClick(
+																result
+															)
+														}
+														size="1"
+														style={{
+															textAlign: "left",
+															height: "auto",
+															padding: "4px 8px",
+															width: "100%",
+														}} // Adjust padding/height & ensure full width
+													>
+														<Text size="2" wrap="wrap">
+															{result.label}
+														</Text>
+													</Button>
+												))}
+											</Flex>
+										</Box>
+									)}
+
+									{!isSearching &&
+										searchQuery.trim() &&
+										searchResults.length === 0 && (
+											<Text size="2" color="gray" align="center">
+												No results found.
+											</Text>
+										)}
+								</Flex>
+							</Popover.Content>
+						</Popover.Root>
 
 						{/* Floating Today Button (Conditional, above FAB) */}
 						{(isTodayInFuture || isTodayInPast) && (

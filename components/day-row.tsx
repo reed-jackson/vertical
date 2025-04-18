@@ -55,11 +55,20 @@ export function DayRow({ date, activeEvents = [], onDayClick, onEventDelete, onE
 			}}
 		>
 			{/* Date Number Column */}
-			<div className="w-8 pt-0.5 text-right text-sm text-gray-700 relative flex-shrink-0">
+			<Flex
+				className="w-8 pt-0.5 text-right text-sm text-gray-700 relative flex-shrink-0"
+				align="center"
+				gap="1"
+			>
+				{/** 
+				<Text className="text-gray-500" style={{ fontSize: "0.5rem" }}>
+					{format(date, "EEEEE")}
+				</Text>
+				*/}
 				<Text size="2" weight={isTodayDate ? "bold" : "regular"}>
 					{dayOfMonth}
 				</Text>
-			</div>
+			</Flex>
 
 			{/* Events Column */}
 			<div className="flex-grow text-sm space-y-1 pt-0.5">
@@ -68,9 +77,6 @@ export function DayRow({ date, activeEvents = [], onDayClick, onEventDelete, onE
 				{activeEvents.map((activeEventInfo, index) => {
 					const { event, showTitle } = activeEventInfo;
 					const isRangeEvent = !!event.event_end_date;
-
-					// State to control hover visibility of delete button
-					const [isHovered, setIsHovered] = useState(false);
 
 					const handleDeleteClick = (e: React.MouseEvent) => {
 						e.stopPropagation(); // Prevent triggering onDayClick
@@ -82,8 +88,6 @@ export function DayRow({ date, activeEvents = [], onDayClick, onEventDelete, onE
 							key={event.id} // Use event.id as key for stability
 							className={`relative group truncate`} // Add group for hover effects
 							style={{ lineHeight: "1.25rem", minHeight: "1.25rem" }}
-							onMouseEnter={() => setIsHovered(true)}
-							onMouseLeave={() => setIsHovered(false)}
 						>
 							{showTitle ? (
 								<Flex gap="2" align="center">
