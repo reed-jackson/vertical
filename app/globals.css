@@ -34,6 +34,39 @@ body {
 .react-datepicker__header {
 	background-color: var(--blue-3);
 }
-/* ... etc */
 
-/* styles/globals.css or similar */
+.floating-action-container {
+	position: fixed;
+	bottom: 32px;
+	right: 32px;
+	z-index: 20;
+}
+
+@media (max-width: 640px) {
+	.floating-action-container {
+		right: 16px;
+	}
+}
+
+.header-container {
+	position: sticky;
+	top: 0;
+	background: var(--color-background);
+	z-index: 10;
+	padding: var(--space-3) var(--space-4);
+	border-bottom: 1px solid var(--gray-a5);
+	border-right: 1px solid var(--gray-a5);
+	border-left: 1px solid var(--gray-a5);
+	border-bottom-right-radius: var(--radius-3);
+	border-bottom-left-radius: var(--radius-3);
+	max-width: var(--container-1);
+	width: 100%;
+}
+
+@media (max-width: 480px) {
+	.header-container {
+		max-width: 100%;
+		border-right: none;
+		border-left: none;
+	}
+}

@@ -1,7 +1,7 @@
 "use client";
 
-import { Drawer as VaulDrawer, Handle as VaulHandle } from "vaul";
-import { Box, Button } from "@radix-ui/themes";
+import { Drawer as VaulDrawer } from "vaul";
+import { Box, VisuallyHidden } from "@radix-ui/themes";
 import React from "react";
 
 // Re-export vaul components for consistency in VertiCal
@@ -9,41 +9,58 @@ export const Drawer = VaulDrawer.Root;
 export const DrawerTrigger = VaulDrawer.Trigger;
 export const DrawerClose = VaulDrawer.Close;
 
-interface BottomDrawerContentProps extends React.ComponentPropsWithoutRef<typeof VaulDrawer.Content> {
-	snapPoints?: number[];
-	shouldScaleBackground?: boolean;
+// Define only your custom props here
+interface CustomDrawerProps {
+	isEditing?: boolean;
 }
+
+// Use an intersection type for the component's props
+type BottomDrawerContentProps = React.ComponentPropsWithoutRef<typeof VaulDrawer.Content> & CustomDrawerProps;
 
 // Custom Drawer Content using VaulDrawer.Content
 export const BottomDrawerContent = React.forwardRef<
 	React.ElementRef<typeof VaulDrawer.Content>,
 	BottomDrawerContentProps
->(({ children, className, ...props }, ref) => (
-	<VaulDrawer.Portal>
-		{/* Overlay - vaul handles its own overlay */}
-		<VaulDrawer.Overlay className="fixed inset-0 z-40 bg-white/60" />
-		{/* Content - vaul handles dragging and animations, apply styling */}
-		<VaulDrawer.Content
-			ref={ref}
-			snapPoints={[0.25]} // Take up 25% of viewport height
-			shouldScaleBackground
-			className={`
-                fixed bottom-0 left-0 right-0 z-50
-                mt-24 flex h-[25vh] min-h-[200px] flex-col rounded-t-[10px]
-                border-t border-gray-200 /* Light border */
-                bg-white /* Explicit light background */
-                p-6 pt-2 shadow-lg /* Keep padding and shadow */
-                focus:outline-none /* Keep focus style */
-                ${className ?? ""}
-            `}
-			{...props}
-		>
-			<VaulHandle />
-			{/* Content area with improved mobile handling */}
-			<Box className="flex-1 overflow-y-auto overscroll-contain text-gray-900">{children}</Box>
-		</VaulDrawer.Content>
-	</VaulDrawer.Portal>
-));
+>(({ children, className, isEditing, snapPoints, ...props }, ref) => {
+	// Destructure snapPoints here
+	// Define default snap points based on editing state
+	const defaultSnapPoints = isEditing ? [0.6, 0.9] : [0.25, 0.9]; // 60% or 25% initial, 90% max
+	// Use provided snapPoints if available, otherwise use defaults
+	const finalSnapPoints = snapPoints ?? defaultSnapPoints;
+
+	return (
+		<VaulDrawer.Portal>
+			<VaulDrawer.Overlay className="fixed inset-0 z-40 bg-white/60" />
+			<VaulDrawer.Content
+				ref={ref}
+				snapPoints={finalSnapPoints} // Pass the resolved snapPoints
+				shouldScaleBackground
+				className={`
+                    fixed bottom-0 left-0 right-0 z-50
+                    mt-24 flex flex-col rounded-t-[10px]
+                    border-t border-r border-l border-gray-200
+                    bg-white
+                    focus:outline-none
+                    /* Let height be controlled by snapPoints and content */
+                    ${className ?? ""}
+                `}
+				{...props} // Pass remaining props (like shouldScaleBackground if needed)
+			>
+				<VisuallyHidden>
+					<VaulDrawer.Title>Event Details</VaulDrawer.Title>
+				</VisuallyHidden>
+				{/* Wrapper for handle and padding */}
+				<Box className="sticky top-0 bg-white pt-2 pb-4 px-6 z-10 rounded-t-[10px]">
+					<Box className="mx-auto h-1.5 w-10 rounded-full bg-gray-300" /> {/* Handle */}
+				</Box>
+				{/* Scrollable content area with padding applied separately */}
+				<Box className="flex-1 overflow-y-auto overscroll-contain px-6 pb-6 text-gray-900">
+					{children}
+				</Box>
+			</VaulDrawer.Content>
+		</VaulDrawer.Portal>
+	);
+});
 BottomDrawerContent.displayName = "BottomDrawerContent";
 
 // Optional: Header and Footer components for structure
@@ -54,15 +71,13 @@ DrawerHeader.displayName = "DrawerHeader";
 
 export const DrawerFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
 	<Box
-		className={`mt-auto flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 ${className ?? ""}`}
+		className={`sticky bottom-0 bg-white pt-4 pb-[max(env(safe-area-inset-bottom),theme(spacing.4))] px-6 border-t border-gray-200 mt-auto flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 ${
+			className ?? ""
+		}`}
 		{...props}
 	/>
 );
 DrawerFooter.displayName = "DrawerFooter";
-
-// For Title/Description, continue using appropriate semantic elements or Radix components
-// as vaul doesn't provide specific Drawer.Title/Drawer.Description exports.
-// Example using basic h2/p or Radix Heading/Text within DrawerHeader/content:
 
 // Keep DrawerTitle (using h2 or Radix Heading inside the content)
 export const DrawerTitle = React.forwardRef<
