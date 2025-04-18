@@ -34,8 +34,6 @@ export const BottomDrawerContent = React.forwardRef<
 			<VaulDrawer.Overlay className="fixed inset-0 z-40 bg-white/60" />
 			<VaulDrawer.Content
 				ref={ref}
-				snapPoints={finalSnapPoints} // Pass the resolved snapPoints
-				shouldScaleBackground
 				className={`
                     fixed bottom-0 left-0 right-0 z-50
                     mt-24 flex flex-col rounded-t-[10px]
