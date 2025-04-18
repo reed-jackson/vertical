@@ -513,7 +513,7 @@ export function VertiCal() {
 		setSearchResults([]); // Clear previous results
 
 		const query = searchQuery.trim().toLowerCase();
-		let results: SearchResult[] = [];
+		const results: SearchResult[] = [];
 
 		// 1. Attempt Date Parsing (Simple YYYY-MM-DD or MM/DD/YYYY for now)
 		let parsedDate: Date | null = null;
