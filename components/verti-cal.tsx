@@ -437,12 +437,7 @@ export function VertiCal() {
 										{showMonthHeader && (
 											<Box px="2" pt={showYearHeader ? "0" : "3"} pb="1">
 												{" "}
-												<Text
-													size="4"
-													weight="bold"
-													color="gray"
-													my="1"
-												>
+												<Text size="5" color="gray" my="1">
 													{format(currentDate, "MMMM")}
 												</Text>{" "}
 											</Box>
