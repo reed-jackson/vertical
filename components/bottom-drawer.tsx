@@ -10,7 +10,8 @@ export const DrawerTrigger = VaulDrawer.Trigger;
 export const DrawerClose = VaulDrawer.Close;
 
 interface BottomDrawerContentProps extends React.ComponentPropsWithoutRef<typeof VaulDrawer.Content> {
-	// No custom props needed for now
+	snapPoints?: number[];
+	shouldScaleBackground?: boolean;
 }
 
 // Custom Drawer Content using VaulDrawer.Content
@@ -24,9 +25,11 @@ export const BottomDrawerContent = React.forwardRef<
 		{/* Content - vaul handles dragging and animations, apply styling */}
 		<VaulDrawer.Content
 			ref={ref}
+			snapPoints={[0.25]} // Take up 25% of viewport height
+			shouldScaleBackground
 			className={`
                 fixed bottom-0 left-0 right-0 z-50
-                mt-24 flex h-auto max-h-[90vh] flex-col rounded-t-[10px]
+                mt-24 flex h-[25vh] min-h-[200px] flex-col rounded-t-[10px]
                 border-t border-gray-200 /* Light border */
                 bg-white /* Explicit light background */
                 p-6 pt-2 shadow-lg /* Keep padding and shadow */
@@ -36,8 +39,8 @@ export const BottomDrawerContent = React.forwardRef<
 			{...props}
 		>
 			<VaulHandle />
-			{/* Content area - vaul might manage overflow, but keep it safe */}
-			<Box className="flex-1 overflow-y-auto text-gray-900">{children}</Box>
+			{/* Content area with improved mobile handling */}
+			<Box className="flex-1 overflow-y-auto overscroll-contain text-gray-900">{children}</Box>
 		</VaulDrawer.Content>
 	</VaulDrawer.Portal>
 ));

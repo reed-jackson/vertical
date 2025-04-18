@@ -21,7 +21,19 @@ import {
 	addYears,
 } from "date-fns";
 import { useMemo, useState, useCallback, useRef } from "react";
-import { Box, Heading, Text, Button, Flex, TextArea, IconButton, Spinner } from "@radix-ui/themes";
+import {
+	Box,
+	Heading,
+	Text,
+	Button,
+	Flex,
+	TextField,
+	Select,
+	TextArea,
+	IconButton,
+	Spinner,
+	Container,
+} from "@radix-ui/themes";
 import { IconArrowUp, IconPlus } from "@tabler/icons-react";
 // Remove ReactDatePicker import if no longer used elsewhere
 // import ReactDatePicker from "react-datepicker";
@@ -360,6 +372,7 @@ export function VertiCal() {
 		<Drawer open={isDrawerOpen} onOpenChange={handleDrawerOpenChange}>
 			<Box style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
 				{/* Sticky Headers */}
+
 				<Box
 					style={{
 						position: "sticky",
@@ -368,7 +381,10 @@ export function VertiCal() {
 						zIndex: 10,
 						padding: "var(--space-3) var(--space-4)",
 						borderBottom: "1px solid var(--gray-a5)",
+						maxWidth: "var(--container-1)",
+						width: "100%",
 					}}
+					mx={"auto"}
 				>
 					<Heading size="8" as="h1" mb="1" trim="start">
 						{currentYear}
@@ -409,27 +425,35 @@ export function VertiCal() {
 							}
 							return (
 								<>
-									{showYearHeader && (
-										<Box px="2" pt="4" pb="1">
-											{" "}
-											<Heading size="6" my="1">
-												{format(currentDate, "yyyy")}
-											</Heading>{" "}
-										</Box>
-									)}
-									{showMonthHeader && (
-										<Box px="2" pt={showYearHeader ? "0" : "3"} pb="1">
-											{" "}
-											<Text size="4" weight="bold" color="gray" my="1">
-												{format(currentDate, "MMMM")}
-											</Text>{" "}
-										</Box>
-									)}
-									<DayRow
-										date={currentDate}
-										activeEvents={activeEventsForDay}
-										onDayClick={() => handleOpenDrawer(null)}
-									/>
+									<Container size="1">
+										{showYearHeader && (
+											<Box px="2" pt="4" pb="1">
+												{" "}
+												<Heading size="6" my="1">
+													{format(currentDate, "yyyy")}
+												</Heading>{" "}
+											</Box>
+										)}
+										{showMonthHeader && (
+											<Box px="2" pt={showYearHeader ? "0" : "3"} pb="1">
+												{" "}
+												<Text
+													size="4"
+													weight="bold"
+													color="gray"
+													my="1"
+												>
+													{format(currentDate, "MMMM")}
+												</Text>{" "}
+											</Box>
+										)}
+
+										<DayRow
+											date={currentDate}
+											activeEvents={activeEventsForDay}
+											onDayClick={() => handleOpenDrawer(null)}
+										/>
+									</Container>
 								</>
 							);
 						}}
