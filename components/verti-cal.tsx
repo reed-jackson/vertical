@@ -478,31 +478,29 @@ export function VertiCal() {
 					)}
 
 					{/* FAB to Trigger Drawer */}
-					<DrawerTrigger asChild>
-						<Button
-							size="4"
-							variant="solid"
-							color="blue"
-							aria-label="Add new event"
-							style={{
-								position: "fixed",
-								bottom: 32,
-								right: 32,
-								zIndex: 20, // Lower zIndex than drawer
-								borderRadius: "50%",
-								width: 56,
-								height: 56,
-								padding: 0,
-								display: "flex",
-								alignItems: "center",
-								justifyContent: "center",
-								boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-							}}
-							onClick={() => handleOpenDrawer(null)} // Pass null for generic add
-						>
-							<IconPlus size={24} />
-						</Button>
-					</DrawerTrigger>
+					<Button
+						size="4"
+						variant="solid"
+						color="blue"
+						aria-label="Add new event"
+						style={{
+							position: "fixed",
+							bottom: 32,
+							right: 32,
+							zIndex: 20, // Lower zIndex than drawer
+							borderRadius: "50%",
+							width: 56,
+							height: 56,
+							padding: 0,
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "center",
+							boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+						}}
+						onClick={() => handleOpenDrawer(null)} // Pass null for generic add
+					>
+						<IconPlus size={24} />
+					</Button>
 				</Box>
 
 				{/* --- Minimal Drawer Content --- */}
