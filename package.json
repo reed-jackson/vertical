@@ -18,7 +18,7 @@
     "@types/react-datepicker": "^6.2.0",
     "ai": "^4.3.7",
     "date-fns": "^4.1.0",
-    "next": "15.3.0",
+    "next": "15.3.8",
     "react": "^19.0.0",
     "react-datepicker": "^8.3.0",
     "react-dom": "^19.0.0",
