@@ -1,11 +1,5 @@
-import Image from "next/image";
-import { VertiCal } from "@/components/verti-cal";
-import { Container } from "@radix-ui/themes";
+import { VerticalCalendar } from "@/components/vertical-calendar"
 
 export default function Home() {
-	return (
-		<main>
-			<VertiCal />
-		</main>
-	);
+  return <VerticalCalendar />
 }

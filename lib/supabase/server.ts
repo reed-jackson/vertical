@@ -1,23 +1,22 @@
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createClient } from "@supabase/supabase-js"
 
-export async function createClient() {
-	const cookieStore = await cookies();
+export type EventRow = {
+  id: string
+  event_date: string
+  title: string
+  event_time: string | null
+  color: string
+  end_date: string | null
+  repeat_rule: "none" | "daily" | "weekly" | "monthly" | "yearly"
+  repeat_interval: number
+  repeat_until: string | null
+  repeat_weekdays: number[]
+  created_at?: string
+}
 
-	return createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
-		cookies: {
-			getAll() {
-				return cookieStore.getAll();
-			},
-			setAll(cookiesToSet) {
-				try {
-					cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
-				} catch {
-					// The `setAll` method was called from a Server Component.
-					// This can be ignored if you have middleware refreshing
-					// user sessions.
-				}
-			},
-		},
-	});
+export function getSupabase() {
+  const url = process.env.SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !serviceKey) return null
+  return createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
 }

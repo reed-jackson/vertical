@@ -1,36 +1,25 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Vertical
 
-## Getting Started
+A minimalist personal calendar built with Next.js, React, Radix Themes, and Supabase.
 
-First, run the development server:
+## Local setup
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+1. Install Bun (1.3 or later).
+2. Install dependencies with `bun install`.
+3. Copy `.env.example` to `.env.local`.
+4. Create a Supabase project and run `supabase/schema.sql` in its SQL editor.
+5. Add your Supabase URL and service role key to `.env.local`.
+6. Add `OPENAI_API_KEY` so the voice agent can use the Realtime API.
+7. Run `bun run dev`.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The service role key is used only by the server route and is never exposed to the browser. Without Supabase credentials, Vertical opens in preview mode with sample events; events created in preview mode last only for the current session.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Voice agent
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The mic drawer talks to OpenAI Realtime over WebRTC. Your server calls `POST /v1/realtime/client_secrets` with `OPENAI_API_KEY`, then the browser uses the returned `ek_...` token. Tools run in the app: jump to a day, create, update, and remove events.
 
-## Learn More
+Create a key at https://platform.openai.com/api-keys and enable Realtime models for that project.
 
-To learn more about Next.js, take a look at the following resources:
+## Data model
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Events are stored in the `public.events` table with a date, optional time, title, Radix-aligned color, and creation timestamp.
