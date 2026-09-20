@@ -1,5 +1,6 @@
 {
   "installCommand": "bun install --frozen-lockfile",
-  "buildCommand": "bun run build",
+  "buildCommand": "NITRO_PRESET=vercel bun run build",
+  "outputDirectory": ".output",
   "framework": null
 }

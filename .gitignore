@@ -41,6 +41,7 @@ supabase/.temp/
 # typescript
 next-env.d.ts
 /dist/
+/.output/
 /.wrangler/
 # Checkout-local execution profile and tool state; never publish them.
 /.sites-runtime/
