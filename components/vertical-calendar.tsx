@@ -6,28 +6,31 @@ import { ArrowLeft, CalendarDays, Check, ChevronRight, Clock, LocateFixed, Maxim
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer"
 import { useRealtimeAgent } from "@/hooks/use-realtime-agent"
 import { dateKey, parseLocalDate, TIMEZONE_COOKIE } from "@/lib/calendar/dates"
-import { CalendarEvent, EVENT_COLORS, matchEvents, occursOn, removeEventRemote, rowToEvent, saveEventRemote, sortDayEvents, spanLanes, spanRole } from "@/lib/calendar/events"
+import { CalendarEvent, EVENT_COLORS, matchEvents, occursOn, removeEventRemote, saveEventRemote, sortDayEvents, spanLanes, spanRole, type SpanRole } from "@/lib/calendar/events"
 
 type RepeatRule = CalendarEvent["repeat"]
 const WEEKDAYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"] as const
 const COLORS = EVENT_COLORS
-const initialEvents: CalendarEvent[] = [
-  { id: "1", date: "2026-09-22", title: "Dentist", time: "9:30 AM", color: "#3e63dd", repeat: "none", repeatInterval: 1, repeatWeekdays: [] },
-  { id: "2", date: "2026-09-25", title: "Dinner with Mom", time: "6:00 PM", color: "#8e4ec6", repeat: "none", repeatInterval: 1, repeatWeekdays: [] },
-  { id: "3", date: "2026-10-03", title: "Harry's birthday", color: "#30a46c", repeat: "yearly", repeatInterval: 1, repeatWeekdays: [] },
-  { id: "5", date: "2026-10-02", endDate: "2026-10-08", title: "Trip to Atlanta", color: "#12a594", repeat: "none", repeatInterval: 1, repeatWeekdays: [] },
-  { id: "4", date: "2026-10-14", title: "Product review", time: "2:00 PM", color: "#e5484d", repeat: "none", repeatInterval: 1, repeatWeekdays: [] },
-]
+const MONTH_WINDOW_BEFORE = 6
+const MONTH_WINDOW_AFTER = 18
+const MONTH_WINDOW_STEP = 6
 const makeId = () => `local-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
 const repeatRules: RepeatRule[] = ["none", "daily", "weekly", "monthly", "yearly"]
 
-export function VerticalCalendar({ initialTodayKey, initialTimeZone }: { initialTodayKey?: string; initialTimeZone?: string } = {}) {
+type VerticalCalendarProps = {
+  initialEvents?: CalendarEvent[]
+  initialSyncState?: "synced" | "preview"
+  initialTodayKey?: string
+  initialTimeZone?: string
+}
+
+export function VerticalCalendar({ initialEvents = [], initialSyncState = "preview", initialTodayKey, initialTimeZone }: VerticalCalendarProps = {}) {
   const [timeZone, setTimeZone] = React.useState(initialTimeZone || "")
   const [todayKey, setTodayKey] = React.useState(initialTodayKey || "")
   const today = React.useMemo(() => parseLocalDate(todayKey || dateKey(new Date())), [todayKey])
   const anchor = React.useMemo(() => startOfMonth(today), [today])
-  const [rangeStart, setRangeStart] = React.useState(-6)
-  const [rangeEnd, setRangeEnd] = React.useState(18)
+  const [rangeStart, setRangeStart] = React.useState(-MONTH_WINDOW_BEFORE)
+  const rangeEnd = rangeStart + MONTH_WINDOW_BEFORE + MONTH_WINDOW_AFTER
   const [events, setEvents] = React.useState<CalendarEvent[]>(initialEvents)
   const [selectedDate, setSelectedDate] = React.useState<Date | null>(null)
   const [endDate, setEndDate] = React.useState("")
@@ -42,7 +45,7 @@ export function VerticalCalendar({ initialTodayKey, initialTimeZone }: { initial
   const [drawerPage, setDrawerPage] = React.useState<"event" | "repeat">("event")
   const [mobileHeader, setMobileHeader] = React.useState({ month: "", year: "", previousMonth: "", previousYear: "", yearChanged: false, index: 0, direction: "forward" as "forward" | "backward", tick: 0 })
   const [editingEventId, setEditingEventId] = React.useState<string | null>(null)
-  const [syncState, setSyncState] = React.useState<"loading" | "synced" | "preview">("loading")
+  const [syncState, setSyncState] = React.useState<"synced" | "preview">(initialSyncState)
   const [voiceOpen, setVoiceOpen] = React.useState(false)
   const [compactDays, setCompactDays] = React.useState(false)
   const [todayInView, setTodayInView] = React.useState(true)
@@ -50,6 +53,7 @@ export function VerticalCalendar({ initialTodayKey, initialTimeZone }: { initial
   const todayRef = React.useRef<HTMLDivElement>(null)
   const formRef = React.useRef<HTMLFormElement>(null)
   const extendingRef = React.useRef(false)
+  const scrollFrameRef = React.useRef<number | null>(null)
   const readyRef = React.useRef(false)
   const eventsRef = React.useRef(events)
   const syncStateRef = React.useRef(syncState)
@@ -60,6 +64,34 @@ export function VerticalCalendar({ initialTodayKey, initialTimeZone }: { initial
     () => Array.from({ length: rangeEnd - rangeStart + 1 }, (_, i) => addMonths(anchor, rangeStart + i)),
     [anchor, rangeEnd, rangeStart],
   )
+  const dayEventIndex = React.useMemo(() => {
+    const index = new Map<string, {
+      listedEvents: CalendarEvent[]
+      spanEvents: Array<{ item: CalendarEvent; role: SpanRole }>
+    }>()
+    const firstMonth = months[0]
+    const lastMonth = months.at(-1)
+    if (!firstMonth || !lastMonth) return index
+
+    for (const day of eachDayOfInterval({ start: startOfMonth(firstMonth), end: endOfMonth(lastMonth) })) {
+      const matching = events.flatMap((item) => {
+        const role = spanRole(item, day)
+        return role || occursOn(item, day) ? [{ item, role }] : []
+      })
+      if (matching.length === 0) continue
+
+      const sorted = sortDayEvents(matching.map(({ item }) => item))
+      const roles = new Map(matching.map(({ item, role }) => [item.id, role]))
+      index.set(dateKey(day), {
+        listedEvents: sorted.filter((item) => roles.get(item.id) !== "mid"),
+        spanEvents: sorted.flatMap((item) => {
+          const role = roles.get(item.id)
+          return role ? [{ item, role }] : []
+        }),
+      })
+    }
+    return index
+  }, [events, months])
   const yearGroups = React.useMemo(() => {
     return months.reduce<Array<{ year: number; months: Date[] }>>((groups, month) => {
       const year = month.getFullYear()
@@ -101,35 +133,18 @@ export function VerticalCalendar({ initialTodayKey, initialTimeZone }: { initial
 
   React.useEffect(() => {
     const scroller = scrollRef.current
-    if (!scroller) return
-    const onMove = () => updateTodayInView()
-    scroller.addEventListener("scroll", onMove, { capture: true, passive: true })
-    const columns = Array.from(scroller.querySelectorAll<HTMLElement>(".month-column"))
-    columns.forEach((column) => column.addEventListener("scroll", onMove, { passive: true }))
-    window.addEventListener("resize", onMove)
-    onMove()
-    return () => {
-      scroller.removeEventListener("scroll", onMove, true)
-      columns.forEach((column) => column.removeEventListener("scroll", onMove))
-      window.removeEventListener("resize", onMove)
+    const day = todayRef.current
+    if (!scroller || !day) {
+      setTodayInView(false)
+      return
     }
-  }, [todayKey, compactDays, rangeStart, rangeEnd])
-
-  React.useEffect(() => {
-    let active = true
-    fetch("/api/events")
-      .then(async (response) => {
-        if (!response.ok) throw new Error("Preview mode")
-        return response.json()
-      })
-      .then(({ events: rows }) => {
-        if (!active) return
-        setEvents(rows.map(rowToEvent))
-        setSyncState("synced")
-      })
-      .catch(() => active && setSyncState("preview"))
-    return () => { active = false }
-  }, [])
+    const observer = new IntersectionObserver(
+      ([entry]) => setTodayInView(entry.isIntersecting),
+      { root: scroller, threshold: 0.05 },
+    )
+    observer.observe(day)
+    return () => observer.disconnect()
+  }, [todayKey, compactDays, rangeStart])
 
   React.useEffect(() => {
     if (!document.modelContext?.registerTool) return
@@ -211,8 +226,7 @@ export function VerticalCalendar({ initialTodayKey, initialTimeZone }: { initial
   }
   function jumpToDate(target: Date) {
     const offset = differenceInCalendarMonths(startOfMonth(target), anchor)
-    if (offset < rangeStart) setRangeStart(offset - 2)
-    if (offset > rangeEnd) setRangeEnd(offset + 2)
+    if (offset < rangeStart || offset > rangeEnd) setRangeStart(offset - MONTH_WINDOW_BEFORE)
     requestAnimationFrame(() => requestAnimationFrame(() => {
       const scroller = scrollRef.current
       const day = scroller?.querySelector<HTMLElement>(`[data-date="${dateKey(target)}"]`)
@@ -390,60 +404,60 @@ export function VerticalCalendar({ initialTodayKey, initialTimeZone }: { initial
     if (!scroller || extendingRef.current) return
     extendingRef.current = true
     const mobile = window.matchMedia("(max-width: 640px)").matches
-    const previousSize = mobile ? scroller.scrollHeight : scroller.scrollWidth
-    if (direction === "before") setRangeStart((value) => value - 6)
-    else setRangeEnd((value) => value + 6)
+    const scrollerBox = scroller.getBoundingClientRect()
+    const anchorElement = document.elementFromPoint(
+      scrollerBox.left + scroller.clientWidth / 2,
+      scrollerBox.top + 80,
+    )?.closest<HTMLElement>(".month-column")
+    const anchorIndex = anchorElement?.dataset.monthIndex
+    const anchorPosition = anchorElement?.getBoundingClientRect()[mobile ? "top" : "left"]
+    setRangeStart((value) => value + (direction === "before" ? -MONTH_WINDOW_STEP : MONTH_WINDOW_STEP))
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      if (direction === "before") {
-        const nextSize = mobile ? scroller.scrollHeight : scroller.scrollWidth
-        if (mobile) scroller.scrollTop += nextSize - previousSize
-        else scroller.scrollLeft += nextSize - previousSize
+      if (anchorIndex && anchorPosition !== undefined) {
+        const nextAnchor = scroller.querySelector<HTMLElement>(`.month-column[data-month-index="${anchorIndex}"]`)
+        const nextPosition = nextAnchor?.getBoundingClientRect()[mobile ? "top" : "left"]
+        if (nextPosition !== undefined) {
+          if (mobile) scroller.scrollTop += nextPosition - anchorPosition
+          else scroller.scrollLeft += nextPosition - anchorPosition
+        }
       }
       extendingRef.current = false
-      updateTodayInView()
     }))
   }
-  function handleCalendarScroll() {
+  function processCalendarScroll() {
     const scroller = scrollRef.current
     if (!scroller || !readyRef.current) return
     const mobile = window.matchMedia("(max-width: 640px)").matches
+    const scrollerBox = scroller.getBoundingClientRect()
+    const active = document.elementFromPoint(
+      scrollerBox.left + scroller.clientWidth / 2,
+      mobile ? scrollerBox.top + 72 : scrollerBox.top + Math.min(80, scroller.clientHeight / 2),
+    )?.closest<HTMLElement>(".month-column")
+    if (active?.dataset.monthName && active.dataset.monthYear && active.dataset.monthIndex) {
+      const nextIndex = Number(active.dataset.monthIndex)
+      const nextMonth = active.dataset.monthName
+      const nextYear = active.dataset.monthYear
+      setMobileHeader((current) => current.month === nextMonth && current.year === nextYear ? current : { month: nextMonth, year: nextYear, previousMonth: current.month, previousYear: current.year, yearChanged: current.year !== nextYear, index: nextIndex, direction: nextIndex > current.index ? "forward" : "backward", tick: current.tick + 1 })
+    }
     if (mobile) {
-      const scrollerTop = scroller.getBoundingClientRect().top
-      const columns = Array.from(scroller.querySelectorAll<HTMLElement>(".month-column"))
-      const active = columns.find((column) => {
-        const rect = column.getBoundingClientRect()
-        return rect.top - scrollerTop <= 72 && rect.bottom - scrollerTop > 72
-      })
-      if (active?.dataset.monthName && active.dataset.monthYear && active.dataset.monthIndex) {
-        const nextIndex = Number(active.dataset.monthIndex)
-        const nextMonth = active.dataset.monthName
-        const nextYear = active.dataset.monthYear
-        setMobileHeader((current) => current.month === nextMonth && current.year === nextYear ? current : { month: nextMonth, year: nextYear, previousMonth: current.month, previousYear: current.year, yearChanged: current.year !== nextYear, index: nextIndex, direction: nextIndex > current.index ? "forward" : "backward", tick: current.tick + 1 })
-      }
-      updateTodayInView()
       if (scroller.scrollTop < 500) extend("before")
       else if (scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 900) extend("after")
     } else {
-      const scrollerBox = scroller.getBoundingClientRect()
-      const focusX = scrollerBox.left + scroller.clientWidth / 2
-      const columns = Array.from(scroller.querySelectorAll<HTMLElement>(".month-column"))
-      const active = columns.reduce<HTMLElement | null>((closest, column) => {
-        if (!closest) return column
-        const closestMid = closest.getBoundingClientRect().left + closest.offsetWidth / 2
-        const columnMid = column.getBoundingClientRect().left + column.offsetWidth / 2
-        return Math.abs(columnMid - focusX) < Math.abs(closestMid - focusX) ? column : closest
-      }, null)
-      if (active?.dataset.monthName && active.dataset.monthYear && active.dataset.monthIndex) {
-        const nextIndex = Number(active.dataset.monthIndex)
-        const nextMonth = active.dataset.monthName
-        const nextYear = active.dataset.monthYear
-        setMobileHeader((current) => current.month === nextMonth && current.year === nextYear ? current : { month: nextMonth, year: nextYear, previousMonth: current.month, previousYear: current.year, yearChanged: current.year !== nextYear, index: nextIndex, direction: nextIndex > current.index ? "forward" : "backward", tick: current.tick + 1 })
-      }
-      updateTodayInView()
       if (scroller.scrollLeft < 500) extend("before")
       else if (scroller.scrollWidth - scroller.scrollLeft - scroller.clientWidth < 900) extend("after")
     }
   }
+  function handleCalendarScroll() {
+    if (scrollFrameRef.current !== null) return
+    scrollFrameRef.current = requestAnimationFrame(() => {
+      scrollFrameRef.current = null
+      processCalendarScroll()
+    })
+  }
+
+  React.useEffect(() => () => {
+    if (scrollFrameRef.current !== null) cancelAnimationFrame(scrollFrameRef.current)
+  }, [])
 
   return (
     <main className="app-shell">
@@ -466,7 +480,7 @@ export function VerticalCalendar({ initialTodayKey, initialTimeZone }: { initial
                 {group.months.map((month) => {
                   const monthDays = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) })
                   const visibleDays = compactDays
-                    ? monthDays.filter((day) => (todayKey && dateKey(day) === todayKey) || events.some((item) => occursOn(item, day)))
+                    ? monthDays.filter((day) => (todayKey && dateKey(day) === todayKey) || dayEventIndex.has(dateKey(day)))
                     : monthDays
                   if (compactDays && visibleDays.length === 0) return null
                   return (
@@ -474,13 +488,11 @@ export function VerticalCalendar({ initialTodayKey, initialTimeZone }: { initial
                     <div className="month-heading"><h2>{format(month, "MMMM")}</h2><span className="month-year">{format(month, "yyyy")}</span></div>
                     <div className="day-list">
                       {visibleDays.map((day) => {
-                        const dayEvents = sortDayEvents(events.filter((item) => occursOn(item, day)))
-                        const listedEvents = dayEvents.filter((item) => spanRole(item, day) !== "mid")
-                        const spanEvents = dayEvents.filter((item) => spanRole(item, day))
+                        const { listedEvents = [], spanEvents = [] } = dayEventIndex.get(dateKey(day)) || {}
                         return (
                           <div ref={todayKey && dateKey(day, timeZone || undefined) === todayKey ? todayRef : undefined} data-date={dateKey(day, timeZone || undefined)} key={dateKey(day, timeZone || undefined)} className={`day-row ${isWeekend(day) ? "weekend" : ""} ${todayKey && dateKey(day, timeZone || undefined) === todayKey ? "is-today" : ""} ${listedEvents.length || spanEvents.length ? "has-events" : ""} ${spanEvents.length ? "has-span" : ""} ${listedEvents.length > 1 ? "has-stack" : ""}`} onClick={() => chooseDay(day)} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === " ") { event.preventDefault(); chooseDay(day) } }} aria-label={`Add event on ${format(day, "EEEE, MMMM d")}`}>
-                            {spanEvents.map((item) => (
-                              <div key={`span-${item.id}`} className={`span-mark span-${spanRole(item, day)}`} style={{ color: item.color, ["--span-lane" as string]: String(lanes.get(item.id) || 0) }} aria-hidden="true" />
+                            {spanEvents.map(({ item, role }) => (
+                              <div key={`span-${item.id}`} className={`span-mark span-${role}`} style={{ color: item.color, ["--span-lane" as string]: String(lanes.get(item.id) || 0) }} aria-hidden="true" />
                             ))}
                             <span className="day-date"><span className="day-number">{format(day, "d")}</span>{compactDays && <span className="day-weekday">{WEEKDAYS[day.getDay()]}</span>}</span>
                             <span className="event-stack">

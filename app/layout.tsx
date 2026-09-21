@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import "@radix-ui/themes/styles.css";
 import "./globals.css";
 import { TIMEZONE_COOKIE } from "@/lib/calendar/dates";
 
@@ -19,14 +18,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className="antialiased radix-themes"
-        data-is-root-theme="true"
-        data-accent-color="indigo"
-        data-gray-color="gray"
-        data-radius="large"
-        data-scaling="100%"
-      >
+      <body className="antialiased">
         {children}
         <script
           dangerouslySetInnerHTML={{

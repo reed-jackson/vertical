@@ -1,17 +1,15 @@
 import { NextResponse } from "next/server"
-import { getSupabase, type EventRow } from "@/lib/supabase/server"
+import { getSupabase, loadEventRows, type EventRow } from "@/lib/supabase/server"
 
 export const dynamic = "force-dynamic"
 
 export async function GET() {
-  const supabase = getSupabase()
-  if (!supabase) return NextResponse.json({ configured: false, events: [] }, { status: 503 })
-  const columns = "id,event_date,title,event_time,color,end_date,repeat_rule,repeat_interval,repeat_until,repeat_weekdays,created_at"
-  const fallback = "id,event_date,title,event_time,color,repeat_rule,repeat_interval,repeat_until,repeat_weekdays,created_at"
-  const first = await supabase.from("events").select(columns).order("event_date").order("event_time")
-  const result = first.error ? await supabase.from("events").select(fallback).order("event_date").order("event_time") : first
-  if (result.error) return NextResponse.json({ error: "Unable to load events." }, { status: 500 })
-  return NextResponse.json({ configured: true, events: result.data })
+  const result = await loadEventRows()
+  if (result.status === "preview") {
+    const status = result.reason === "not-configured" ? 503 : 500
+    return NextResponse.json({ configured: result.reason !== "not-configured", events: [] }, { status })
+  }
+  return NextResponse.json({ configured: true, events: result.events })
 }
 
 export async function POST(request: Request) {
