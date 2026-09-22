@@ -8,6 +8,8 @@ export type ChatGPTUser = {
   fullName: string | null;
 };
 
+export const ALLOWED_EMAIL = "reed.a.jackson@gmail.com";
+
 const USER_ID_HEADER = "oai-authenticated-user-id";
 const USER_EMAIL_HEADER = "oai-authenticated-user-email";
 const USER_FULL_NAME_HEADER = "oai-authenticated-user-full-name";
@@ -46,6 +48,11 @@ export async function requireChatGPTUser(
   if (user) return user;
 
   redirect(chatGPTSignInPath(returnTo));
+}
+
+export async function getAuthorizedUser(): Promise<ChatGPTUser | null> {
+  const user = await getChatGPTUser();
+  return user?.email.trim().toLowerCase() === ALLOWED_EMAIL ? user : null;
 }
 
 export function chatGPTSignInPath(returnTo: string): string {

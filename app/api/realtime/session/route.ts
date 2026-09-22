@@ -2,12 +2,14 @@ import { NextResponse } from "next/server"
 import { agentInstructions } from "@/lib/agent/instructions"
 import { AGENT_TOOLS } from "@/lib/agent/tools"
 import { localTodayKey } from "@/lib/calendar/dates"
+import { getAuthorizedUser } from "@/app/chatgpt-auth"
 
 export const dynamic = "force-dynamic"
 
 const MODEL = process.env.OPENAI_REALTIME_MODEL || "gpt-realtime-2.1"
 
 export async function POST(request: Request) {
+  if (!(await getAuthorizedUser())) return NextResponse.json({ error: "Unauthorized." }, { status: 401 })
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
     return NextResponse.json({ error: "Set OPENAI_API_KEY to connect the calendar agent." }, { status: 503 })

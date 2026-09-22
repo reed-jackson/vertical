@@ -1,4 +1,4 @@
-const CACHE_NAME = "vertical-shell-v1";
+const CACHE_NAME = "vertical-shell-v2";
 const SHELL_ASSETS = [
   "/manifest.webmanifest",
   "/favicon.svg",
@@ -36,17 +36,8 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put("/", copy));
-          }
-          return response;
-        })
-        .catch(() => caches.match("/")),
-    );
+    // Authenticated pages can contain private calendar data. Never persist them.
+    event.respondWith(fetch(request));
     return;
   }
 

@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server"
 import { getSupabase, loadEventRows, type EventRow } from "@/lib/supabase/server"
+import { getAuthorizedUser } from "@/app/chatgpt-auth"
 
 export const dynamic = "force-dynamic"
 
 export async function GET() {
+  if (!(await getAuthorizedUser())) return NextResponse.json({ error: "Unauthorized." }, { status: 401 })
   const result = await loadEventRows()
   if (result.status === "preview") {
     const status = result.reason === "not-configured" ? 503 : 500
@@ -13,6 +15,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!(await getAuthorizedUser())) return NextResponse.json({ error: "Unauthorized." }, { status: 401 })
   const supabase = getSupabase()
   if (!supabase) return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 })
   const body = (await request.json()) as Partial<EventRow>
@@ -36,6 +39,7 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  if (!(await getAuthorizedUser())) return NextResponse.json({ error: "Unauthorized." }, { status: 401 })
   const supabase = getSupabase()
   if (!supabase) return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 })
   const body = (await request.json()) as Partial<EventRow>
@@ -59,6 +63,7 @@ export async function PUT(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  if (!(await getAuthorizedUser())) return NextResponse.json({ error: "Unauthorized." }, { status: 401 })
   const supabase = getSupabase()
   if (!supabase) return NextResponse.json({ error: "Supabase is not configured." }, { status: 503 })
   const body = (await request.json()) as { id?: string }

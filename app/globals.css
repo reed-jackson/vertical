@@ -19,6 +19,25 @@ body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica
 button, input { font: inherit; }
 button { color: inherit; }
 
+.auth-shell { min-height: 100dvh; display: grid; place-items: center; padding: 28px; background: #fff; }
+.auth-panel { width: min(100%, 380px); display: flex; flex-direction: column; align-items: stretch; }
+.auth-brand { width: 40px; height: 40px; display: grid; place-items: center; margin-bottom: 54px; border-radius: 50%; background: #111; color: #fff; font-size: 17px; font-weight: 700; letter-spacing: -.04em; }
+.auth-copy { margin-bottom: 30px; }
+.auth-copy h1 { margin: 0 0 12px; max-width: 330px; color: #111; font-size: clamp(31px, 7vw, 42px); font-weight: 650; line-height: 1.02; letter-spacing: -.04em; }
+.auth-copy p { margin: 0; color: #767676; font-size: 15px; line-height: 1.55; }
+.auth-button { min-height: 52px; display: flex; align-items: center; gap: 12px; padding: 0 17px; border: 1px solid #dfdfdf; border-radius: 12px; background: #fff; color: #111; text-decoration: none; font-size: 15px; font-weight: 620; transition: background .14s ease, border-color .14s ease, transform .14s ease; }
+.auth-button:hover { border-color: #c8c8c8; background: #f6f6f6; }
+.auth-button:active { transform: scale(.985); }
+.auth-button:focus-visible { outline: 2px solid #111; outline-offset: 3px; }
+.auth-button-arrow { margin-left: auto; }
+.auth-private { display: flex; align-items: center; gap: 7px; margin: 16px 2px 0; color: #8a8a8a; font-size: 12px; line-height: 1.4; }
+@media (max-width: 480px) {
+  .auth-shell { place-items: start center; padding: max(38px, env(safe-area-inset-top)) 22px 28px; }
+  .auth-panel { min-height: calc(100dvh - 66px); justify-content: center; padding-bottom: 12vh; }
+  .auth-brand { margin-bottom: 44px; }
+}
+@media (prefers-reduced-motion: reduce) { .auth-button { transition: none; } }
+
 .app-shell { position: relative; height: 100dvh; overflow: hidden; background: #fff; }
 .desktop-year { display: none; }
 .mobile-calendar-header { display: none; }
@@ -45,13 +64,15 @@ button { color: inherit; }
 .is-today .day-number { background: tomato; color: #fff; border-radius: 50%; font-weight: 650; }
 .event-stack { min-width: 0; display: flex; flex-direction: column; gap: 1px; overflow: visible; position: relative; z-index: 1; }
 .event-line { min-width: 0; width: fit-content; max-width: 100%; padding: 0; border: 0; background: transparent; display: flex; gap: 6px; align-items: baseline; line-height: 15px; text-align: left; cursor: pointer; position: relative; z-index: 1; }
+.holiday-line { color: #767676; cursor: default; }
+.holiday-line .event-title { font-weight: 550; }
 .span-mark { position: absolute; left: calc(var(--date-col) + var(--date-gap) + var(--span-inset) + (var(--span-lane, 0) * 8px)); width: 2px; box-sizing: border-box; z-index: 0; pointer-events: none; background: none; border: 0; border-left: 2px dotted color-mix(in srgb, currentColor 44%, transparent); }
 .span-start { top: calc(50% + 14px); bottom: -14px; }
 .span-mid { top: -14px; bottom: -14px; }
 .span-end { top: -14px; bottom: calc(50% + 14px); }
 .day-row.weekend .span-mark { left: calc(var(--date-col) + var(--date-gap) + var(--span-inset) + (var(--span-lane, 0) * 8px) - var(--weekend-shift)); }
 .day-row.has-events .event-line:first-child { min-height: 22px; align-items: center; }
-.event-line:hover .event-title { text-decoration: underline; text-underline-offset: 2px; }
+button.event-line:hover .event-title { text-decoration: underline; text-underline-offset: 2px; }
 .event-line:focus-visible { outline: 2px solid #111; outline-offset: 2px; border-radius: 4px; }
 .event-title { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; font-weight: 700; }
 .event-time { flex: none; font-size: 11px; color: #8a8a8a; font-weight: 400; font-variant-numeric: tabular-nums; }
