@@ -447,10 +447,19 @@ export function VerticalCalendar({ initialEvents = [], initialSyncState = "previ
     if (!scroller || !readyRef.current) return
     const mobile = window.matchMedia("(max-width: 640px)").matches
     const scrollerBox = scroller.getBoundingClientRect()
-    const active = document.elementFromPoint(
+    let active = document.elementFromPoint(
       scrollerBox.left + scroller.clientWidth / 2,
       mobile ? scrollerBox.top + 72 : scrollerBox.top + Math.min(80, scroller.clientHeight / 2),
     )?.closest<HTMLElement>(".month-column")
+    if (mobile && !compactDays) {
+      const headerBottom = scrollerBox.top + 66
+      const passedHeadings = [...scroller.querySelectorAll<HTMLElement>(".month-column")]
+        .filter((month) => {
+          const heading = month.querySelector<HTMLElement>(".month-heading")
+          return Boolean(heading && heading.getBoundingClientRect().bottom <= headerBottom)
+        })
+      active = passedHeadings.at(-1) || active
+    }
     if (active?.dataset.monthName && active.dataset.monthYear && active.dataset.monthIndex) {
       const nextIndex = Number(active.dataset.monthIndex)
       const nextMonth = active.dataset.monthName

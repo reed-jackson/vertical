@@ -206,7 +206,8 @@ button.fab-compact { display: none; }
   .year-group, .year-months { display: block; }
   .year-heading { display: none; }
   .month-column { width: 100%; min-width: 0; height: auto; overflow: visible; padding: 0 22px 56px; }
-  .month-heading { position: static; min-height: 66px; padding: 0; background: transparent; backdrop-filter: none; visibility: hidden; }
+  .month-heading { position: static; min-height: 66px; align-items: flex-end; padding: 18px 0 12px; background: transparent; backdrop-filter: none; visibility: visible; }
+  .month-heading h2 { font-size: 20px; }
   .months-scroll.compact-days .month-column { padding: 0 22px 4px; }
   .months-scroll.compact-days .month-heading {
     visibility: visible;
