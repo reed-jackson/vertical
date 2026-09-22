@@ -7,6 +7,7 @@ import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerTitle } fr
 import { useRealtimeAgent } from "@/hooks/use-realtime-agent"
 import { dateKey, parseLocalDate, TIMEZONE_COOKIE } from "@/lib/calendar/dates"
 import { CalendarEvent, EVENT_COLORS, matchEvents, occursOn, removeEventRemote, saveEventRemote, sortDayEvents, spanLanes, spanRole, type SpanRole } from "@/lib/calendar/events"
+import { getUsPublicHolidays } from "@/lib/calendar/holidays"
 
 type RepeatRule = CalendarEvent["repeat"]
 const WEEKDAYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"] as const
@@ -64,6 +65,23 @@ export function VerticalCalendar({ initialEvents = [], initialSyncState = "previ
     () => Array.from({ length: rangeEnd - rangeStart + 1 }, (_, i) => addMonths(anchor, rangeStart + i)),
     [anchor, rangeEnd, rangeStart],
   )
+  const holidayYears = React.useMemo(() => [...new Set(months.map((month) => month.getFullYear()))], [months])
+  const [holidays, setHolidays] = React.useState<Array<{ date: string; name: string }>>([])
+  React.useEffect(() => {
+    let active = true
+    void getUsPublicHolidays(holidayYears).then((next) => {
+      if (active) setHolidays(next)
+    })
+    return () => { active = false }
+  }, [holidayYears])
+  const holidayIndex = React.useMemo(() => {
+    const index = new Map<string, string[]>()
+    for (const holiday of holidays) {
+      const names = index.get(holiday.date) || []
+      index.set(holiday.date, [...names, holiday.name])
+    }
+    return index
+  }, [holidays])
   const dayEventIndex = React.useMemo(() => {
     const index = new Map<string, {
       listedEvents: CalendarEvent[]
@@ -480,7 +498,7 @@ export function VerticalCalendar({ initialEvents = [], initialSyncState = "previ
                 {group.months.map((month) => {
                   const monthDays = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) })
                   const visibleDays = compactDays
-                    ? monthDays.filter((day) => (todayKey && dateKey(day) === todayKey) || dayEventIndex.has(dateKey(day)))
+                    ? monthDays.filter((day) => (todayKey && dateKey(day) === todayKey) || dayEventIndex.has(dateKey(day)) || holidayIndex.has(dateKey(day)))
                     : monthDays
                   if (compactDays && visibleDays.length === 0) return null
                   return (
@@ -489,13 +507,19 @@ export function VerticalCalendar({ initialEvents = [], initialSyncState = "previ
                     <div className="day-list">
                       {visibleDays.map((day) => {
                         const { listedEvents = [], spanEvents = [] } = dayEventIndex.get(dateKey(day)) || {}
+                        const holidays = holidayIndex.get(dateKey(day)) || []
                         return (
-                          <div ref={todayKey && dateKey(day, timeZone || undefined) === todayKey ? todayRef : undefined} data-date={dateKey(day, timeZone || undefined)} key={dateKey(day, timeZone || undefined)} className={`day-row ${isWeekend(day) ? "weekend" : ""} ${todayKey && dateKey(day, timeZone || undefined) === todayKey ? "is-today" : ""} ${listedEvents.length || spanEvents.length ? "has-events" : ""} ${spanEvents.length ? "has-span" : ""} ${listedEvents.length > 1 ? "has-stack" : ""}`} onClick={() => chooseDay(day)} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === " ") { event.preventDefault(); chooseDay(day) } }} aria-label={`Add event on ${format(day, "EEEE, MMMM d")}`}>
+                          <div ref={todayKey && dateKey(day, timeZone || undefined) === todayKey ? todayRef : undefined} data-date={dateKey(day, timeZone || undefined)} key={dateKey(day, timeZone || undefined)} className={`day-row ${isWeekend(day) ? "weekend" : ""} ${todayKey && dateKey(day, timeZone || undefined) === todayKey ? "is-today" : ""} ${listedEvents.length || spanEvents.length || holidays.length ? "has-events" : ""} ${spanEvents.length ? "has-span" : ""} ${listedEvents.length + holidays.length > 1 ? "has-stack" : ""}`} onClick={() => chooseDay(day)} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === " ") { event.preventDefault(); chooseDay(day) } }} aria-label={`Add event on ${format(day, "EEEE, MMMM d")}${holidays.length ? `. ${holidays.join(", ")}` : ""}`}>
                             {spanEvents.map(({ item, role }) => (
                               <div key={`span-${item.id}`} className={`span-mark span-${role}`} style={{ color: item.color, ["--span-lane" as string]: String(lanes.get(item.id) || 0) }} aria-hidden="true" />
                             ))}
                             <span className="day-date"><span className="day-number">{format(day, "d")}</span>{compactDays && <span className="day-weekday">{WEEKDAYS[day.getDay()]}</span>}</span>
                             <span className="event-stack">
+                              {holidays.map((holiday) => (
+                                <span className="event-line holiday-line" key={`holiday-${holiday}`} title="U.S. public holiday">
+                                  <span className="event-title">{holiday}</span>
+                                </span>
+                              ))}
                               {listedEvents.map((item) => (
                                 <button type="button" className="event-line" key={item.id} style={{ color: item.color }} onClick={(event) => { event.stopPropagation(); editEvent(item) }} aria-label={`Edit ${item.title}`}>
                                   <span className="event-title">{item.title}</span>
