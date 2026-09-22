@@ -1,10 +1,8 @@
 import { ArrowRight, LockKeyhole } from "lucide-react";
 import {
   ALLOWED_EMAIL,
-  chatGPTSignInPath,
-  chatGPTSignOutPath,
-  type ChatGPTUser,
-} from "@/app/chatgpt-auth";
+} from "@/lib/supabase/auth";
+import type { User } from "@supabase/supabase-js";
 
 function GoogleMark() {
   return (
@@ -17,8 +15,15 @@ function GoogleMark() {
   );
 }
 
-export function SignInGate({ user }: { user: ChatGPTUser | null }) {
+export function SignInGate({ user, error }: { user: User | null; error?: string }) {
   const wrongAccount = Boolean(user);
+  const message = error === "account"
+    ? `This calendar only opens for ${ALLOWED_EMAIL}.`
+    : error
+      ? "Google sign-in could not be completed. Please try again."
+      : wrongAccount
+        ? `This calendar only opens for ${ALLOWED_EMAIL}.`
+        : "Sign in to open your personal calendar.";
 
   return (
     <main className="auth-shell">
@@ -27,19 +32,17 @@ export function SignInGate({ user }: { user: ChatGPTUser | null }) {
         <div className="auth-copy">
           <h1 id="auth-title">Your days, kept private.</h1>
           <p>
-            {wrongAccount
-              ? `This calendar only opens for ${ALLOWED_EMAIL}.`
-              : "Sign in to open your personal calendar."}
+            {message}
           </p>
         </div>
 
         {wrongAccount ? (
-          <a className="auth-button" href={chatGPTSignOutPath("/")}>
+          <a className="auth-button" href="/auth/sign-out">
             <span>Use another Google account</span>
             <ArrowRight size={17} aria-hidden="true" />
           </a>
         ) : (
-          <a className="auth-button" href={chatGPTSignInPath("/")}>
+          <a className="auth-button" href="/auth/sign-in">
             <GoogleMark />
             <span>Sign in with Google</span>
             <ArrowRight className="auth-button-arrow" size={17} aria-hidden="true" />

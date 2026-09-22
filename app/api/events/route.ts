@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { getSupabase, loadEventRows, type EventRow } from "@/lib/supabase/server"
-import { getAuthorizedUser } from "@/app/chatgpt-auth"
+import { getAuthorizedUser } from "@/lib/supabase/auth"
 
 export const dynamic = "force-dynamic"
 

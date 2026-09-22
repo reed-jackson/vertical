@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { agentInstructions } from "@/lib/agent/instructions"
 import { AGENT_TOOLS } from "@/lib/agent/tools"
 import { localTodayKey } from "@/lib/calendar/dates"
-import { getAuthorizedUser } from "@/app/chatgpt-auth"
+import { getAuthorizedUser } from "@/lib/supabase/auth"
 
 export const dynamic = "force-dynamic"
 
