@@ -19,6 +19,28 @@ export type SpanRole = "start" | "mid" | "end"
 
 export const EVENT_COLORS = ["#3e63dd", "#30a46c", "#e5484d", "#e5a000", "#8e4ec6", "#12a594"]
 
+export function formatEventTime(time: string) {
+  const value = time.trim()
+  const match = value.match(/^(\d{1,2}):(\d{2})(?:\s*([AP])M)?$/i)
+  if (!match) return value
+
+  let hour = Number(match[1])
+  const minutes = Number(match[2])
+  if (minutes > 59) return value
+
+  const meridian = match[3]?.toLowerCase()
+  if (meridian) {
+    if (hour < 1 || hour > 12) return value
+    return `${hour}:${match[2]}${meridian}`
+  }
+
+  if (hour > 23) return value
+  const suffix = hour >= 12 ? "p" : "a"
+  hour %= 12
+  if (hour === 0) hour = 12
+  return `${hour}:${match[2]}${suffix}`
+}
+
 export function rowToEvent(row: Partial<EventRow> & Pick<EventRow, "id" | "event_date" | "title" | "color">): CalendarEvent {
   return {
     id: row.id,

@@ -6,7 +6,7 @@ import { ArrowLeft, CalendarDays, Check, ChevronRight, Clock, LocateFixed, Maxim
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer"
 import { useRealtimeAgent } from "@/hooks/use-realtime-agent"
 import { dateKey, parseLocalDate, TIMEZONE_COOKIE } from "@/lib/calendar/dates"
-import { CalendarEvent, EVENT_COLORS, matchEvents, occursOn, removeEventRemote, saveEventRemote, sortDayEvents, spanLanes, spanRole, type SpanRole } from "@/lib/calendar/events"
+import { CalendarEvent, EVENT_COLORS, formatEventTime, matchEvents, occursOn, removeEventRemote, saveEventRemote, sortDayEvents, spanLanes, spanRole, type SpanRole } from "@/lib/calendar/events"
 import { getUsPublicHolidays } from "@/lib/calendar/holidays"
 
 type RepeatRule = CalendarEvent["repeat"]
@@ -532,7 +532,7 @@ export function VerticalCalendar({ initialEvents = [], initialSyncState = "previ
                               {listedEvents.map((item) => (
                                 <button type="button" className="event-line" key={item.id} style={{ color: item.color }} onClick={(event) => { event.stopPropagation(); editEvent(item) }} aria-label={`Edit ${item.title}`}>
                                   <span className="event-title">{item.title}</span>
-                                  {item.time && <span className="event-time">{item.time}</span>}
+                                  {item.time && <span className="event-time">{formatEventTime(item.time)}</span>}
                                 </button>
                               ))}
                             </span>
