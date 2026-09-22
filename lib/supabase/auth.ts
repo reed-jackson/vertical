@@ -1,6 +1,7 @@
 import "server-only";
 
-import { createClient, type User } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
+import type { User } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 export const ALLOWED_EMAIL = "reed.a.jackson@gmail.com";
@@ -25,34 +26,23 @@ export function createSupabaseAuthClient(cookieStore: CookieStore) {
   const credentials = authCredentials();
   if (!credentials) return null;
 
-  return createClient(credentials.url, credentials.key, {
+  return createServerClient(credentials.url, credentials.key, {
     auth: {
       flowType: "pkce",
       autoRefreshToken: false,
       detectSessionInUrl: false,
       persistSession: true,
-      storage: {
-        getItem: (key) => cookieStore.get(key)?.value ?? null,
-        setItem: (key, value) => {
+    },
+    cookies: {
+      getAll: () => cookieStore.getAll(),
+      setAll: (cookiesToSet) => {
+        cookiesToSet.forEach(({ name, value, options }) => {
           try {
-            cookieStore.set(key, value, {
-              httpOnly: true,
-              sameSite: "lax",
-              secure: process.env.NODE_ENV === "production",
-              path: "/",
-              maxAge: 60 * 60 * 24 * 30,
-            });
+            cookieStore.set(name, value, options);
           } catch {
             // Server Components can read cookies but cannot update them.
           }
-        },
-        removeItem: (key) => {
-          try {
-            cookieStore.delete(key);
-          } catch {
-            // Server Components can read cookies but cannot update them.
-          }
-        },
+        });
       },
     },
   });
