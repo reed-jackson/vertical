@@ -2,12 +2,12 @@
 
 import * as React from "react"
 import { addMonths, differenceInCalendarMonths, eachDayOfInterval, endOfMonth, format, isWeekend, startOfMonth } from "date-fns"
-import { ArrowLeft, CalendarDays, Check, ChevronRight, Clock, LocateFixed, Maximize2, Mic, Minimize2, Plus, Repeat2, X } from "lucide-react"
+import { LocateFixed, Maximize2, Mic, Minimize2, Plus, X } from "lucide-react"
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer"
+import { EventEditor, type EditorSession } from "@/components/event-editor"
 import { useRealtimeAgent } from "@/hooks/use-realtime-agent"
 import { dateKey, parseLocalDate, TIMEZONE_COOKIE } from "@/lib/calendar/dates"
 import { CalendarEvent, EVENT_COLORS, formatEventTime, matchEvents, occursOn, removeEventRemote, saveEventRemote, sortDayEvents, spanLanes, spanRole, type SpanRole } from "@/lib/calendar/events"
-import { getUsPublicHolidays } from "@/lib/calendar/holidays"
 
 type RepeatRule = CalendarEvent["repeat"]
 const WEEKDAYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"] as const
@@ -23,9 +23,10 @@ type VerticalCalendarProps = {
   initialSyncState?: "synced" | "preview"
   initialTodayKey?: string
   initialTimeZone?: string
+  initialHolidays?: Array<{ date: string; name: string }>
 }
 
-export function VerticalCalendar({ initialEvents = [], initialSyncState = "preview", initialTodayKey, initialTimeZone }: VerticalCalendarProps = {}) {
+export function VerticalCalendar({ initialEvents = [], initialSyncState = "preview", initialTodayKey, initialTimeZone, initialHolidays = [] }: VerticalCalendarProps = {}) {
   const [timeZone, setTimeZone] = React.useState(initialTimeZone || "")
   const [todayKey, setTodayKey] = React.useState(initialTodayKey || "")
   const today = React.useMemo(() => parseLocalDate(todayKey || dateKey(new Date())), [todayKey])
@@ -33,26 +34,14 @@ export function VerticalCalendar({ initialEvents = [], initialSyncState = "previ
   const [rangeStart, setRangeStart] = React.useState(-MONTH_WINDOW_BEFORE)
   const rangeEnd = rangeStart + MONTH_WINDOW_BEFORE + MONTH_WINDOW_AFTER
   const [events, setEvents] = React.useState<CalendarEvent[]>(initialEvents)
-  const [selectedDate, setSelectedDate] = React.useState<Date | null>(null)
-  const [endDate, setEndDate] = React.useState("")
-  const [drawerOpen, setDrawerOpen] = React.useState(false)
-  const [title, setTitle] = React.useState("")
-  const [time, setTime] = React.useState("")
-  const [color, setColor] = React.useState(COLORS[0])
-  const [repeat, setRepeat] = React.useState<RepeatRule>("none")
-  const [repeatInterval, setRepeatInterval] = React.useState(1)
-  const [repeatUntil, setRepeatUntil] = React.useState("")
-  const [repeatWeekdays, setRepeatWeekdays] = React.useState<number[]>([])
-  const [drawerPage, setDrawerPage] = React.useState<"event" | "repeat">("event")
+  const [editorSession, setEditorSession] = React.useState<EditorSession | null>(null)
   const [mobileHeader, setMobileHeader] = React.useState({ month: "", year: "", previousMonth: "", previousYear: "", yearChanged: false, index: 0, direction: "forward" as "forward" | "backward", tick: 0 })
-  const [editingEventId, setEditingEventId] = React.useState<string | null>(null)
   const [syncState, setSyncState] = React.useState<"synced" | "preview">(initialSyncState)
   const [voiceOpen, setVoiceOpen] = React.useState(false)
   const [compactDays, setCompactDays] = React.useState(false)
   const [todayInView, setTodayInView] = React.useState(true)
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const todayRef = React.useRef<HTMLDivElement>(null)
-  const formRef = React.useRef<HTMLFormElement>(null)
   const extendingRef = React.useRef(false)
   const scrollFrameRef = React.useRef<number | null>(null)
   const readyRef = React.useRef(false)
@@ -66,14 +55,18 @@ export function VerticalCalendar({ initialEvents = [], initialSyncState = "previ
     [anchor, rangeEnd, rangeStart],
   )
   const holidayYears = React.useMemo(() => [...new Set(months.map((month) => month.getFullYear()))], [months])
-  const [holidays, setHolidays] = React.useState<Array<{ date: string; name: string }>>([])
+  const [holidays, setHolidays] = React.useState<Array<{ date: string; name: string }>>(initialHolidays)
   React.useEffect(() => {
     let active = true
-    void getUsPublicHolidays(holidayYears).then((next) => {
-      if (active) setHolidays(next)
-    })
+    const loadedYears = new Set(holidays.map((holiday) => Number(holiday.date.slice(0, 4))))
+    const missingYears = holidayYears.filter((year) => !loadedYears.has(year))
+    if (missingYears.length) {
+      void fetch(`/api/holidays?years=${missingYears.join(",")}`).then(async (response) => response.ok ? await response.json() as { holidays: Array<{ date: string; name: string }> } : { holidays: [] }).then(({ holidays: next }) => {
+        if (active) setHolidays((current) => [...current, ...next].filter((item, index, all) => all.findIndex((candidate) => candidate.date === item.date && candidate.name === item.name) === index))
+      })
+    }
     return () => { active = false }
-  }, [holidayYears])
+  }, [holidayYears, holidays])
   const holidayIndex = React.useMemo(() => {
     const index = new Map<string, string[]>()
     for (const holiday of holidays) {
@@ -195,39 +188,19 @@ export function VerticalCalendar({ initialEvents = [], initialSyncState = "previ
     return () => lifecycle.abort()
   }, [])
 
-  function chooseDay(day: Date) {
-    setSelectedDate(day); setEndDate(""); setTitle(""); setTime("")
-    setEditingEventId(null); setRepeat("none"); setRepeatInterval(1); setRepeatUntil(""); setRepeatWeekdays([])
-    setColor(COLORS[Math.floor(Math.random() * COLORS.length)])
-    setDrawerPage("event")
-    setDrawerOpen(true)
-  }
-  function editEvent(item: CalendarEvent) {
-    setEditingEventId(item.id)
-    setSelectedDate(parseLocalDate(item.date))
-    setEndDate(item.endDate || "")
-    setTitle(item.title)
-    setTime(item.time || "")
-    setColor(item.color)
-    setRepeat(item.repeat)
-    setRepeatInterval(item.repeatInterval)
-    setRepeatUntil(item.repeatUntil || "")
-    setRepeatWeekdays(item.repeatWeekdays)
-    setDrawerPage("event")
-    setDrawerOpen(true)
-  }
-  async function saveEvent(event?: React.SyntheticEvent) {
-    event?.preventDefault()
-    if (!selectedDate || !title.trim()) return
-    const startKey = dateKey(selectedDate)
-    const spanEnd = endDate && endDate > startKey ? endDate : undefined
-    const optimistic: CalendarEvent = { id: editingEventId || makeId(), date: startKey, endDate: spanEnd, title: title.trim(), time: time || undefined, color, repeat, repeatInterval: Math.max(1, repeatInterval), repeatUntil: repeatUntil || undefined, repeatWeekdays: repeat === "weekly" ? (repeatWeekdays.length ? repeatWeekdays : [selectedDate.getDay()]) : [] }
-    const previous = editingEventId ? events.find((item) => item.id === editingEventId) : undefined
-    setEvents((current) => editingEventId ? current.map((item) => item.id === editingEventId ? optimistic : item) : [...current, optimistic])
-    setDrawerOpen(false)
+  const chooseDay = React.useCallback((day: Date) => {
+    setEditorSession({ key: Date.now(), date: dateKey(day), color: COLORS[Math.floor(Math.random() * COLORS.length)] })
+  }, [])
+  const editEvent = React.useCallback((item: CalendarEvent) => {
+    setEditorSession({ key: Date.now(), date: item.date, event: item, color: item.color })
+  }, [])
+  async function saveEvent(optimistic: CalendarEvent, editingId?: string) {
+    const previous = editingId ? events.find((item) => item.id === editingId) : undefined
+    setEvents((current) => editingId ? current.map((item) => item.id === editingId ? optimistic : item) : [...current, optimistic])
+    setEditorSession(null)
     if (syncState === "synced") {
       try {
-        const saved = await saveEventRemote(optimistic, editingEventId ? "PUT" : "POST")
+        const saved = await saveEventRemote(optimistic, editingId ? "PUT" : "POST")
         setEvents((current) => current.map((item) => item.id === optimistic.id ? saved : item))
       } catch {
         setEvents((current) => previous ? current.map((item) => item.id === optimistic.id ? previous : item) : current.filter((item) => item.id !== optimistic.id))
@@ -363,7 +336,7 @@ export function VerticalCalendar({ initialEvents = [], initialSyncState = "previ
     function onKeyDown(event: KeyboardEvent) {
       if (event.metaKey || event.ctrlKey || event.altKey) return
       if (isTypingTarget(event.target)) return
-      if (drawerOpen || voiceOpen) return
+      if (editorSession || voiceOpen) return
       if (event.key === "Enter") {
         event.preventDefault()
         setVoiceOpen(true)
@@ -383,7 +356,7 @@ export function VerticalCalendar({ initialEvents = [], initialSyncState = "previ
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [agent, drawerOpen, today, voiceOpen])
+  }, [agent, editorSession, today, voiceOpen])
 
   function updateTodayInView() {
     const scroller = scrollRef.current
@@ -446,20 +419,10 @@ export function VerticalCalendar({ initialEvents = [], initialSyncState = "previ
     const scroller = scrollRef.current
     if (!scroller || !readyRef.current) return
     const mobile = window.matchMedia("(max-width: 640px)").matches
-    const scrollerBox = scroller.getBoundingClientRect()
-    let active = document.elementFromPoint(
-      scrollerBox.left + scroller.clientWidth / 2,
-      mobile ? scrollerBox.top + 72 : scrollerBox.top + Math.min(80, scroller.clientHeight / 2),
+    const active = document.elementFromPoint(
+      scroller.clientWidth / 2,
+      mobile ? 72 : Math.min(80, scroller.clientHeight / 2),
     )?.closest<HTMLElement>(".month-column")
-    if (mobile && !compactDays) {
-      const headerBottom = scrollerBox.top + 66
-      const passedHeadings = [...scroller.querySelectorAll<HTMLElement>(".month-column")]
-        .filter((month) => {
-          const heading = month.querySelector<HTMLElement>(".month-heading")
-          return Boolean(heading && heading.getBoundingClientRect().bottom <= headerBottom)
-        })
-      active = passedHeadings.at(-1) || active
-    }
     if (active?.dataset.monthName && active.dataset.monthYear && active.dataset.monthIndex) {
       const nextIndex = Number(active.dataset.monthIndex)
       const nextMonth = active.dataset.monthName
@@ -504,45 +467,7 @@ export function VerticalCalendar({ initialEvents = [], initialSyncState = "previ
             <div className="year-group" key={group.year}>
               <div className="year-heading">{group.year}</div>
               <div className="year-months">
-                {group.months.map((month) => {
-                  const monthDays = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) })
-                  const visibleDays = compactDays
-                    ? monthDays.filter((day) => (todayKey && dateKey(day) === todayKey) || dayEventIndex.has(dateKey(day)) || holidayIndex.has(dateKey(day)))
-                    : monthDays
-                  if (compactDays && visibleDays.length === 0) return null
-                  return (
-                  <section className="month-column" key={dateKey(month)} data-month-name={format(month, "MMMM")} data-month-year={format(month, "yyyy")} data-month-index={differenceInCalendarMonths(month, anchor)}>
-                    <div className="month-heading"><h2>{format(month, "MMMM")}</h2><span className="month-year">{format(month, "yyyy")}</span></div>
-                    <div className="day-list">
-                      {visibleDays.map((day) => {
-                        const { listedEvents = [], spanEvents = [] } = dayEventIndex.get(dateKey(day)) || {}
-                        const holidays = holidayIndex.get(dateKey(day)) || []
-                        return (
-                          <div ref={todayKey && dateKey(day, timeZone || undefined) === todayKey ? todayRef : undefined} data-date={dateKey(day, timeZone || undefined)} key={dateKey(day, timeZone || undefined)} className={`day-row ${isWeekend(day) ? "weekend" : ""} ${todayKey && dateKey(day, timeZone || undefined) === todayKey ? "is-today" : ""} ${listedEvents.length || spanEvents.length || holidays.length ? "has-events" : ""} ${spanEvents.length ? "has-span" : ""} ${listedEvents.length + holidays.length > 1 ? "has-stack" : ""}`} onClick={() => chooseDay(day)} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === " ") { event.preventDefault(); chooseDay(day) } }} aria-label={`Add event on ${format(day, "EEEE, MMMM d")}${holidays.length ? `. ${holidays.join(", ")}` : ""}`}>
-                            {spanEvents.map(({ item, role }) => (
-                              <div key={`span-${item.id}`} className={`span-mark span-${role}`} style={{ color: item.color, ["--span-lane" as string]: String(lanes.get(item.id) || 0) }} aria-hidden="true" />
-                            ))}
-                            <span className="day-date"><span className="day-number">{format(day, "d")}</span>{compactDays && <span className="day-weekday">{WEEKDAYS[day.getDay()]}</span>}</span>
-                            <span className="event-stack">
-                              {holidays.map((holiday) => (
-                                <span className="event-line holiday-line" key={`holiday-${holiday}`} title="U.S. public holiday">
-                                  <span className="event-title">{holiday}</span>
-                                </span>
-                              ))}
-                              {listedEvents.map((item) => (
-                                <button type="button" className="event-line" key={item.id} style={{ color: item.color }} onClick={(event) => { event.stopPropagation(); editEvent(item) }} aria-label={`Edit ${item.title}`}>
-                                  <span className="event-title">{item.title}</span>
-                                  {item.time && <span className="event-time">{formatEventTime(item.time)}</span>}
-                                </button>
-                              ))}
-                            </span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </section>
-                  )
-                })}
+                {group.months.map((month) => <MonthColumn key={dateKey(month)} month={month} anchor={anchor} compactDays={compactDays} todayKey={todayKey} timeZone={timeZone} dayEventIndex={dayEventIndex} holidayIndex={holidayIndex} lanes={lanes} todayRef={todayRef} onChooseDay={chooseDay} onEditEvent={editEvent} />)}
               </div>
             </div>
           ))}
@@ -556,44 +481,7 @@ export function VerticalCalendar({ initialEvents = [], initialSyncState = "previ
         <button className="fab fab-voice" onClick={() => { setVoiceOpen(true); void agent.start() }} aria-label="Open voice assistant" aria-keyshortcuts="Enter"><Mic size={22} strokeWidth={1.9} /></button>
       </div>
 
-      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <DrawerContent className="event-drawer">
-          <div className="drawer-inner">
-            <div className="drawer-header-row">
-              <div className="drawer-heading-group">{drawerPage === "repeat" && <button type="button" className="drawer-back" onClick={() => setDrawerPage("event")} aria-label="Back to event"><ArrowLeft size={19} /></button>}<div><DrawerTitle className="drawer-title">{drawerPage === "repeat" ? "Repeat" : editingEventId ? "Edit event" : "New event"}</DrawerTitle><DrawerDescription className="sr-only">{drawerPage === "repeat" ? "Edit the repeat schedule" : editingEventId ? "Edit this calendar event" : "Add an event to your calendar"}</DrawerDescription></div></div>
-              <DrawerClose className="drawer-close" aria-label="Close"><X size={19} /></DrawerClose>
-            </div>
-            <form ref={formRef} onSubmit={saveEvent} className="event-form">
-              <div className="drawer-viewport">
-                <div className={`drawer-slider ${drawerPage === "repeat" ? "show-repeat" : ""}`}>
-                  <section className="drawer-page event-page" aria-hidden={drawerPage !== "event"}>
-                    <input className="title-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="What’s happening?" autoFocus aria-label="Event title" />
-                    <div className="event-fields">
-                      <label className="date-field"><CalendarDays size={17} strokeWidth={1.7} /><input type="date" value={selectedDate ? dateKey(selectedDate) : ""} onChange={(event) => { if (!event.target.value) return; const next = parseLocalDate(event.target.value); setSelectedDate(next); if (endDate && endDate < dateKey(next)) setEndDate("") }} aria-label="Start date" /></label>
-                      <label className="date-field"><CalendarDays size={17} strokeWidth={1.7} /><input type="date" min={selectedDate ? dateKey(selectedDate) : undefined} value={endDate} onChange={(event) => setEndDate(event.target.value)} aria-label="End date" /></label>
-                      <label className="time-field"><Clock size={17} strokeWidth={1.7} /><input type="time" value={time} onChange={(event) => setTime(event.target.value)} aria-label="Event time" /></label>
-                      <button type="button" className={`repeat-trigger ${repeat !== "none" ? "active" : ""}`} onClick={() => setDrawerPage("repeat")}><Repeat2 size={17} strokeWidth={1.7} /><span>{repeat === "none" ? "Repeat" : repeat[0].toUpperCase() + repeat.slice(1)}</span><ChevronRight size={16} /></button>
-                    </div>
-                    <div className="event-actions">
-                      <div className="color-picker" aria-label="Event color">
-                        {COLORS.map((swatch) => <button type="button" key={swatch} className={`color-swatch ${color === swatch ? "selected" : ""}`} style={{ background: swatch }} onClick={() => setColor(swatch)} aria-label={`Select ${swatch} color`}>{color === swatch && <Check size={13} color="white" strokeWidth={3} />}</button>)}
-                      </div>
-                    </div>
-                    <button className="save-button" type="button" onClick={() => formRef.current?.requestSubmit()} disabled={!title.trim()}>{editingEventId ? "Save changes" : "Add event"}</button>
-                  </section>
-                  <section className="drawer-page repeat-page" aria-hidden={drawerPage !== "repeat"}>
-                    <label className="repeat-choice"><span>Cadence</span><select value={repeat} onChange={(event) => setRepeat(event.target.value as RepeatRule)} aria-label="Repeat cadence"><option value="none">Does not repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></label>
-                    {repeat !== "none" && <label className="interval-field"><span>Every</span><input type="number" min="1" max="99" value={repeatInterval} onChange={(event) => setRepeatInterval(Math.max(1, Number(event.target.value)))} aria-label="Repeat interval" /><span>{repeat === "daily" ? "day(s)" : repeat === "weekly" ? "week(s)" : repeat === "monthly" ? "month(s)" : "year(s)"}</span></label>}
-                    {repeat === "weekly" && <div className="weekday-group"><span>On</span><div className="weekday-picker" aria-label="Repeat on weekdays">{["S", "M", "T", "W", "T", "F", "S"].map((label, index) => <button type="button" key={`${label}-${index}`} className={repeatWeekdays.includes(index) ? "selected" : ""} onClick={() => setRepeatWeekdays((days) => days.includes(index) ? days.filter((day) => day !== index) : [...days, index])} aria-pressed={repeatWeekdays.includes(index)} aria-label={`Repeat on ${["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][index]}`}>{label}</button>)}</div></div>}
-                    {repeat !== "none" && <label className="until-field"><span>Until</span><input type="date" min={selectedDate ? dateKey(selectedDate) : undefined} value={repeatUntil} onChange={(event) => setRepeatUntil(event.target.value)} aria-label="Repeat until" /></label>}
-                    <button type="button" className="repeat-done" onClick={() => setDrawerPage("event")}>Done</button>
-                  </section>
-                </div>
-              </div>
-            </form>
-          </div>
-        </DrawerContent>
-      </Drawer>
+      <EventEditor session={editorSession} onClose={() => setEditorSession(null)} onSave={saveEvent} />
 
       <Drawer open={voiceOpen} onOpenChange={(open) => { setVoiceOpen(open); if (!open) agent.stop() }}>
         <DrawerContent className="voice-drawer">
@@ -619,3 +507,47 @@ export function VerticalCalendar({ initialEvents = [], initialSyncState = "previ
     </main>
   )
 }
+
+const MonthColumn = React.memo(function MonthColumn({ month, anchor, compactDays, todayKey, timeZone, dayEventIndex, holidayIndex, lanes, todayRef, onChooseDay, onEditEvent }: {
+  month: Date
+  anchor: Date
+  compactDays: boolean
+  todayKey: string
+  timeZone: string
+  dayEventIndex: Map<string, { listedEvents: CalendarEvent[]; spanEvents: Array<{ item: CalendarEvent; role: SpanRole }> }>
+  holidayIndex: Map<string, string[]>
+  lanes: Map<string, number>
+  todayRef: React.RefObject<HTMLDivElement | null>
+  onChooseDay: (day: Date) => void
+  onEditEvent: (item: CalendarEvent) => void
+}) {
+  const monthDays = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) })
+  const visibleDays = compactDays
+    ? monthDays.filter((day) => (todayKey && dateKey(day) === todayKey) || dayEventIndex.has(dateKey(day)) || holidayIndex.has(dateKey(day)))
+    : monthDays
+  if (compactDays && visibleDays.length === 0) return null
+
+  return (
+    <section className="month-column" data-month-name={format(month, "MMMM")} data-month-year={format(month, "yyyy")} data-month-index={differenceInCalendarMonths(month, anchor)}>
+      <div className="month-heading"><h2>{format(month, "MMMM")}</h2><span className="month-year">{format(month, "yyyy")}</span></div>
+      <div className="day-list">
+        {visibleDays.map((day) => {
+          const key = dateKey(day, timeZone || undefined)
+          const { listedEvents = [], spanEvents = [] } = dayEventIndex.get(dateKey(day)) || {}
+          const dayHolidays = holidayIndex.get(dateKey(day)) || []
+          const isToday = Boolean(todayKey && key === todayKey)
+          return (
+            <div ref={isToday ? todayRef : undefined} data-date={key} key={key} className={`day-row ${isWeekend(day) ? "weekend" : ""} ${isToday ? "is-today" : ""} ${listedEvents.length || spanEvents.length || dayHolidays.length ? "has-events" : ""} ${spanEvents.length ? "has-span" : ""} ${listedEvents.length + dayHolidays.length > 1 ? "has-stack" : ""}`} onClick={() => onChooseDay(day)} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === " ") { event.preventDefault(); onChooseDay(day) } }} aria-label={`Add event on ${format(day, "EEEE, MMMM d")}${dayHolidays.length ? `. ${dayHolidays.join(", ")}` : ""}`}>
+              {spanEvents.map(({ item, role }) => <div key={`span-${item.id}`} className={`span-mark span-${role}`} style={{ color: item.color, ["--span-lane" as string]: String(lanes.get(item.id) || 0) }} aria-hidden="true" />)}
+              <span className="day-date"><span className="day-number">{format(day, "d")}</span>{compactDays && <span className="day-weekday">{WEEKDAYS[day.getDay()]}</span>}</span>
+              <span className="event-stack">
+                {dayHolidays.map((holiday) => <span className="event-line holiday-line" key={`holiday-${holiday}`} title="U.S. public holiday"><span className="event-title">{holiday}</span></span>)}
+                {listedEvents.map((item) => <button type="button" className="event-line" key={item.id} style={{ color: item.color }} onClick={(event) => { event.stopPropagation(); onEditEvent(item) }} aria-label={`Edit ${item.title}`}><span className="event-title">{item.title}</span>{item.time && <span className="event-time">{formatEventTime(item.time)}</span>}</button>)}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+})
