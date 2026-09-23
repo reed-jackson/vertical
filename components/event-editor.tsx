@@ -15,14 +15,15 @@ export type EditorSession = {
   color: string
 }
 
-export function EventEditor({ session, onClose, onSave, onDelete }: {
+export function EventEditor({ session, open, onClose, onSave, onDelete }: {
   session: EditorSession | null
+  open: boolean
   onClose: () => void
   onSave: (event: CalendarEvent, editingId?: string) => void
   onDelete: (event: CalendarEvent) => void
 }) {
   return (
-    <Drawer open={Boolean(session)} onOpenChange={(open) => { if (!open) onClose() }} dismissible={false}>
+    <Drawer open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose() }} dismissible={false}>
       {session && <EditorForm key={session.key} session={session} onClose={onClose} onSave={onSave} onDelete={onDelete} />}
     </Drawer>
   )

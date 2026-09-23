@@ -35,6 +35,7 @@ export function VerticalCalendar({ initialEvents = [], initialSyncState = "previ
   const rangeEnd = rangeStart + MONTH_WINDOW_BEFORE + MONTH_WINDOW_AFTER
   const [events, setEvents] = React.useState<CalendarEvent[]>(initialEvents)
   const [editorSession, setEditorSession] = React.useState<EditorSession | null>(null)
+  const [editorOpen, setEditorOpen] = React.useState(false)
   const [mobileHeader, setMobileHeader] = React.useState({ month: "", year: "", previousMonth: "", previousYear: "", yearChanged: false, index: 0, direction: "forward" as "forward" | "backward", tick: 0 })
   const [syncState, setSyncState] = React.useState<"synced" | "preview">(initialSyncState)
   const [voiceOpen, setVoiceOpen] = React.useState(false)
@@ -190,14 +191,16 @@ export function VerticalCalendar({ initialEvents = [], initialSyncState = "previ
 
   const chooseDay = React.useCallback((day: Date) => {
     setEditorSession({ key: Date.now(), date: dateKey(day), color: COLORS[Math.floor(Math.random() * COLORS.length)] })
+    setEditorOpen(true)
   }, [])
   const editEvent = React.useCallback((item: CalendarEvent) => {
     setEditorSession({ key: Date.now(), date: item.date, event: item, color: item.color })
+    setEditorOpen(true)
   }, [])
   async function saveEvent(optimistic: CalendarEvent, editingId?: string) {
     const previous = editingId ? events.find((item) => item.id === editingId) : undefined
     setEvents((current) => editingId ? current.map((item) => item.id === editingId ? optimistic : item) : [...current, optimistic])
-    setEditorSession(null)
+    setEditorOpen(false)
     if (syncState === "synced") {
       try {
         const saved = await saveEventRemote(optimistic, editingId ? "PUT" : "POST")
@@ -209,7 +212,7 @@ export function VerticalCalendar({ initialEvents = [], initialSyncState = "previ
     }
   }
   async function deleteEvent(item: CalendarEvent) {
-    setEditorSession(null)
+    setEditorOpen(false)
     setEvents((current) => current.filter((event) => event.id !== item.id))
     if (syncState === "synced") {
       try {
@@ -348,7 +351,7 @@ export function VerticalCalendar({ initialEvents = [], initialSyncState = "previ
     function onKeyDown(event: KeyboardEvent) {
       if (event.metaKey || event.ctrlKey || event.altKey) return
       if (isTypingTarget(event.target)) return
-      if (editorSession || voiceOpen) return
+      if (editorOpen || voiceOpen) return
       if (event.key === "Enter") {
         event.preventDefault()
         setVoiceOpen(true)
@@ -368,7 +371,7 @@ export function VerticalCalendar({ initialEvents = [], initialSyncState = "previ
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [agent, editorSession, today, voiceOpen])
+  }, [agent, editorOpen, today, voiceOpen])
 
   function updateTodayInView() {
     const scroller = scrollRef.current
@@ -493,7 +496,7 @@ export function VerticalCalendar({ initialEvents = [], initialSyncState = "previ
         <button className="fab fab-voice" onClick={() => { setVoiceOpen(true); void agent.start() }} aria-label="Open voice assistant" aria-keyshortcuts="Enter"><Mic size={22} strokeWidth={1.9} /></button>
       </div>
 
-      <EventEditor session={editorSession} onClose={() => setEditorSession(null)} onSave={saveEvent} onDelete={deleteEvent} />
+      <EventEditor session={editorSession} open={editorOpen} onClose={() => setEditorOpen(false)} onSave={saveEvent} onDelete={deleteEvent} />
 
       <Drawer open={voiceOpen} onOpenChange={(open) => { setVoiceOpen(open); if (!open) agent.stop() }}>
         <DrawerContent className="voice-drawer">
