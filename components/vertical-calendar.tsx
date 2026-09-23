@@ -208,6 +208,18 @@ export function VerticalCalendar({ initialEvents = [], initialSyncState = "previ
       }
     }
   }
+  async function deleteEvent(item: CalendarEvent) {
+    setEditorSession(null)
+    setEvents((current) => current.filter((event) => event.id !== item.id))
+    if (syncState === "synced") {
+      try {
+        await removeEventRemote(item.id)
+      } catch {
+        setEvents((current) => current.some((event) => event.id === item.id) ? current : [...current, item])
+        setSyncState("preview")
+      }
+    }
+  }
   function offsetInScroller(element: HTMLElement, scroller: HTMLElement, axis: "left" | "top") {
     const elementBox = element.getBoundingClientRect()
     const scrollerBox = scroller.getBoundingClientRect()
@@ -481,7 +493,7 @@ export function VerticalCalendar({ initialEvents = [], initialSyncState = "previ
         <button className="fab fab-voice" onClick={() => { setVoiceOpen(true); void agent.start() }} aria-label="Open voice assistant" aria-keyshortcuts="Enter"><Mic size={22} strokeWidth={1.9} /></button>
       </div>
 
-      <EventEditor session={editorSession} onClose={() => setEditorSession(null)} onSave={saveEvent} />
+      <EventEditor session={editorSession} onClose={() => setEditorSession(null)} onSave={saveEvent} onDelete={deleteEvent} />
 
       <Drawer open={voiceOpen} onOpenChange={(open) => { setVoiceOpen(open); if (!open) agent.stop() }}>
         <DrawerContent className="voice-drawer">

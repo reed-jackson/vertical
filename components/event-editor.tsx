@@ -1,8 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { ArrowLeft, CalendarDays, Check, ChevronRight, Clock, Repeat2, X } from "lucide-react"
-import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer"
+import { ArrowLeft, CalendarDays, Check, ChevronRight, Clock, Repeat2, Trash2, X } from "lucide-react"
+import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer"
 import { parseLocalDate } from "@/lib/calendar/dates"
 import { CalendarEvent, EVENT_COLORS } from "@/lib/calendar/events"
 
@@ -15,19 +15,20 @@ export type EditorSession = {
   color: string
 }
 
-export function EventEditor({ session, onClose, onSave }: {
+export function EventEditor({ session, onClose, onSave, onDelete }: {
   session: EditorSession | null
   onClose: () => void
   onSave: (event: CalendarEvent, editingId?: string) => void
+  onDelete: (event: CalendarEvent) => void
 }) {
   return (
     <Drawer open={Boolean(session)} onOpenChange={(open) => { if (!open) onClose() }} dismissible={false}>
-      {session && <EditorForm key={session.key} session={session} onSave={onSave} />}
+      {session && <EditorForm key={session.key} session={session} onClose={onClose} onSave={onSave} onDelete={onDelete} />}
     </Drawer>
   )
 }
 
-function EditorForm({ session, onSave }: { session: EditorSession; onSave: (event: CalendarEvent, editingId?: string) => void }) {
+function EditorForm({ session, onClose, onSave, onDelete }: { session: EditorSession; onClose: () => void; onSave: (event: CalendarEvent, editingId?: string) => void; onDelete: (event: CalendarEvent) => void }) {
   const source = session.event
   const [page, setPage] = React.useState<"event" | "repeat">("event")
   const [title, setTitle] = React.useState(source?.title || "")
@@ -39,6 +40,8 @@ function EditorForm({ session, onSave }: { session: EditorSession; onSave: (even
   const [repeatInterval, setRepeatInterval] = React.useState(source?.repeatInterval || 1)
   const [repeatUntil, setRepeatUntil] = React.useState(source?.repeatUntil || "")
   const [repeatWeekdays, setRepeatWeekdays] = React.useState<number[]>(source?.repeatWeekdays || [])
+  const [colorOpen, setColorOpen] = React.useState(false)
+  const [deleteArmed, setDeleteArmed] = React.useState(false)
   const formRef = React.useRef<HTMLFormElement>(null)
 
   function submit(event: React.FormEvent) {
@@ -67,20 +70,28 @@ function EditorForm({ session, onSave }: { session: EditorSession; onSave: (even
             {page === "repeat" && <button type="button" className="drawer-back" onClick={() => setPage("event")} aria-label="Back to event"><ArrowLeft size={19} /></button>}
             <div><DrawerTitle className="drawer-title">{page === "repeat" ? "Repeat" : source ? "Edit event" : "New event"}</DrawerTitle><DrawerDescription className="sr-only">{page === "repeat" ? "Edit the repeat schedule" : source ? "Edit this calendar event" : "Add an event to your calendar"}</DrawerDescription></div>
           </div>
-          <DrawerClose className="drawer-close" aria-label="Close"><X size={19} /></DrawerClose>
+          <button type="button" className="drawer-close" onClick={onClose} aria-label="Close"><X size={19} /></button>
         </div>
         <form ref={formRef} onSubmit={submit} className="event-form">
           <div className="drawer-viewport">
             <section className={`drawer-panel event-page ${page === "event" ? "active" : "leaving"}`} aria-hidden={page !== "event"}>
-              <input className="title-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="What’s happening?" autoFocus aria-label="Event title" />
+              <div className="title-row">
+                <input className="title-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="What’s happening?" autoFocus aria-label="Event title" />
+                <div className="color-control">
+                  <button type="button" className="color-trigger" style={{ background: color }} onClick={() => setColorOpen((open) => !open)} aria-label="Choose event color" aria-expanded={colorOpen} />
+                  {colorOpen && <div className="color-popover" role="group" aria-label="Event color">{EVENT_COLORS.map((swatch) => <button type="button" key={swatch} className={`color-swatch ${color === swatch ? "selected" : ""}`} style={{ background: swatch }} onClick={() => { setColor(swatch); setColorOpen(false) }} aria-label={`Select ${swatch} color`}>{color === swatch && <Check size={12} color="white" strokeWidth={3} />}</button>)}</div>}
+                </div>
+              </div>
               <div className="event-fields">
                 <label className="date-field"><CalendarDays size={17} strokeWidth={1.7} /><input type="date" value={startDate} onChange={(event) => { if (!event.target.value) return; setStartDate(event.target.value); if (endDate && endDate < event.target.value) setEndDate("") }} aria-label="Start date" /></label>
                 <label className="date-field"><CalendarDays size={17} strokeWidth={1.7} /><input type="date" min={startDate} value={endDate} onChange={(event) => setEndDate(event.target.value)} aria-label="End date" /></label>
                 <label className="time-field"><Clock size={17} strokeWidth={1.7} /><input type="time" value={time} onChange={(event) => setTime(event.target.value)} aria-label="Event time" /></label>
                 <button type="button" className={`repeat-trigger ${repeat !== "none" ? "active" : ""}`} onClick={() => setPage("repeat")}><Repeat2 size={17} strokeWidth={1.7} /><span>{repeat === "none" ? "Repeat" : repeat[0].toUpperCase() + repeat.slice(1)}</span><ChevronRight size={16} /></button>
               </div>
-              <div className="event-actions"><div className="color-picker" aria-label="Event color">{EVENT_COLORS.map((swatch) => <button type="button" key={swatch} className={`color-swatch ${color === swatch ? "selected" : ""}`} style={{ background: swatch }} onClick={() => setColor(swatch)} aria-label={`Select ${swatch} color`}>{color === swatch && <Check size={13} color="white" strokeWidth={3} />}</button>)}</div></div>
-              <button className="save-button" type="button" onClick={() => formRef.current?.requestSubmit()} disabled={!title.trim()}>{source ? "Save changes" : "Add event"}</button>
+              <div className="form-actions">
+                {source && <button className={`delete-button ${deleteArmed ? "armed" : ""}`} type="button" onClick={() => { if (deleteArmed) onDelete(source); else setDeleteArmed(true) }} onBlur={() => setDeleteArmed(false)}><Trash2 size={16} strokeWidth={1.8} />{deleteArmed ? "Delete this event?" : "Delete"}</button>}
+                <button className="save-button" type="button" onClick={() => formRef.current?.requestSubmit()} disabled={!title.trim()}>{source ? "Save changes" : "Add event"}</button>
+              </div>
             </section>
             <section className={`drawer-panel repeat-page ${page === "repeat" ? "active" : "entering"}`} aria-hidden={page !== "repeat"}>
               <label className="repeat-choice"><span>Cadence</span><select value={repeat} onChange={(event) => setRepeat(event.target.value as RepeatRule)} aria-label="Repeat cadence"><option value="none">Does not repeat</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select></label>
